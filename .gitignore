@@ -1,0 +1,8 @@
+# Ignore Git Folder
+/.git/
+
+# Ignore IntelliJ IDEA Folder
+/.idea/
+
+# Ignore Output Folder
+/target/

@@ -1,0 +1,94 @@
+SimpleGraves Plugin
+Copyright (C) 2025 Flummidill <https://github.com/Flummidill>
+
+This Program is Licensed under Version 1 of the ETHICAL USE SOFTWARE LICENSE (EUSL)
+
+
+----------------------------------------------------------------------------------------------------
+
+
+ETHICAL USE SOFTWARE LICENSE
+Version 1, July 2025
+
+Copyright (C) 2025 Flummidill <https://github.com/Flummidill>
+
+
+
+Using this License
+
+	Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
+	
+	The Original License can be Found at: https://github.com/Flummidill/Ethical-Use-Software-License/EUSL-V1.txt
+	
+	
+Preamble
+
+	The purpose of this License is to ensure that any Program licensed with it remains free and open for use, study, and modification by the public, while forbidding commercial use or monetization.
+	
+	To protect the author's intent and integrity of the Program, specific restrictions and obligations apply to redistribution and modification.
+	
+	
+TERMS AND CONDITIONS
+
+	0. Definitions.
+	
+		"This License" refers to Version 1 of the Ethical Use Software License by Flummidill.
+		
+		"The Program" refers to any Copyrightable work licensed under this License.
+		
+		"You" refers to any licensee, recipient, or user of the Program, whether an individual or organization.
+		
+		
+	1. Commercial Use
+	
+		Commercial use, resale, or monetization of the Program or any derivative work is strictly prohibited. This includes selling copies, offering paid services based on the Program, or using the Program as part of a commercial product or service.
+		
+		
+	2. Redistribution and Modification
+	
+		Redistribution or modification of the Program is permitted under the following conditions:
+			a) The Program must remain open-source and publicly accessible.
+			b) You must Credit the original Author.
+			c) You must include a Link to the Original Program.
+			d) All modifications to the Program must be clearly documented.
+			e) You may not alter, remove, or replace this License, nor may you apply a different License to any fork, modification, or derivative of the Program.
+			
+			
+	3. Additional Terms
+	
+		You may add your own original material to the Program and may include reasonable Terms for that material, which will not affect any Parts of this Program you used, modified or not, provided those terms do not contradict or override this License.
+		
+		
+	4. Newer Versions of this License
+	
+		Flummidill may Publish newer Versions of the Ethical Use Software License in the Future.
+		
+		Each of these Versions is given a unique Version Number specified at the Top of the License.
+		
+		If the Program specifies that it is Licensed under "Version * of the Ethical Use Software License" and adds "or any newer Version" you have to instead follow all Terms of that "newer Version" instead of this License.
+		
+		
+	5. Warranty
+	
+		THE PROGRAM IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE AUTHOR IS NOT LIABLE FOR ANY DAMAGES, CLAIMS, OR OTHER LIABILITY ARISING FROM USE OF THE PROGRAM.
+		
+END OF TERMS AND CONDITIONS
+
+
+How to Apply this License to your own Software:
+
+	a) Create a License File with the following Contents and add it to your Source-Code:
+		<Name of the Program>
+		Copyright (C) <Year> <Name of the Author>
+		
+		This Program is Licensed under Version 1 of the ETHICAL USE SOFTWARE LICENSE (EUSL)
+		
+		----------------------------------------------------------------------------------------------------
+		
+		<Copy of the EUSL (https://github.com/Flummidill/Ethical-Use-Software-License/EUSL-V1.txt)>
+		
+	b) OPTIONAL BUT RECOMMENDED: To be the Safest, Attach the following notices to the Top of each Source File:
+		<Name of the Program>
+		Copyright (C) <Year> <Name of the Author>
+		
+		This Program is Licensed under Version 1 of the ETHICAL USE SOFTWARE LICENSE (EUSL): <Link to the previously created License File>

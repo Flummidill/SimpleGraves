@@ -1,0 +1,22 @@
+name: SimpleGraves
+main: com.flummidill.simplegraves.SimpleGraves
+version: ${project.version}
+api-version: 1.13
+commands:
+  graveinfo:
+    description: See Information about your Grave.
+    usage: /graveinfo <number>
+    permission: simplegraves.use
+    permission-message: You do not have access to this command.
+  graveadmin:
+    description: Admin commands for SimpleGraves.
+    usage: /graveadmin <go|list|info|remove> [<player>] [<number>]
+    permission: simplegraves.admin
+    permission-message: You do not have access to this command.
+permissions:
+  simplegraves.use:
+    description: Allows using Graves
+    default: true
+  simplegraves.admin:
+    description: Allows using Admin Commands
+    default: op

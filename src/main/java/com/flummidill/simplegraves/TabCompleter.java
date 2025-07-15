@@ -1,0 +1,127 @@
+package com.flummidill.simplegraves;
+
+import org.bukkit.Bukkit;
+import org.bukkit.command.*;
+import org.bukkit.entity.Player;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class TabCompleter implements org.bukkit.command.TabCompleter {
+
+    private final GraveManager graveManager;
+
+    public TabCompleter(GraveManager graveManager) {
+        this.graveManager = graveManager;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+
+        if (sender instanceof Player) {
+            Player player = (Player) sender;
+            UUID uuid = player.getUniqueId();
+
+            graveManager.saveOfflinePlayer(uuid, player.getName());
+
+            String cmd = command.getName().toLowerCase();
+
+            switch (cmd) {
+                case "graveinfo":
+                    return autocompleteGraveInfo(player, args);
+                case "graveadmin":
+                    return autocompleteGraveAdmin(player, args);
+
+                default:
+                    return Collections.emptyList();
+            }
+        } else {
+            return Collections.emptyList();
+        }
+    }
+
+    private List<String> autocompleteGraveInfo(Player player, String[] args) {
+        if (args.length == 1) {
+            return graveManager.getGraveNumberList(player.getUniqueId());
+        }
+
+        return Collections.emptyList();
+    }
+
+    private List<String> autocompleteGraveAdmin(Player sender, String[] args) {
+        if (args.length == 1) {
+            String prefix = args[0].toLowerCase();
+            List<String> subcommands = Arrays.asList("go", "list", "info", "remove");
+
+            if (prefix.isEmpty()) {
+                return subcommands;
+            } else {
+                return filterStringsByPrefix(subcommands, prefix);
+            }
+        }
+        if (args.length == 2) {
+            String subcommand = args[0].toLowerCase();
+
+            String prefix = args[1].toLowerCase();
+            List<String> playerNames = new ArrayList<>();
+
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                String name = p.getName();
+                if (!playerNames.contains(name)) {
+                    playerNames.add(name);
+                }
+            }
+
+            List<String> offlinePlayerNames = graveManager.getOfflinePlayerNameList();
+            for (String name : offlinePlayerNames) {
+                if (!playerNames.contains(name)) {
+                    playerNames.add(name);
+                }
+            }
+
+            if (prefix.isEmpty()) {
+                return playerNames;
+            } else {
+                return filterStringsByPrefix(playerNames, prefix);
+            }
+        }
+        if (args.length == 3) {
+            String subcommand = args[0].toLowerCase();
+            String playerName = args[1];
+            Player target = Bukkit.getPlayerExact(playerName);
+            UUID playerUUID;
+
+            if (target != null) {
+                playerUUID = target.getUniqueId();
+            } else if (graveManager.getOfflinePlayerUUID(playerName) != null) {
+                playerUUID = graveManager.getOfflinePlayerUUID(playerName);
+            } else {
+                return Collections.emptyList();
+            }
+
+            if (subcommand.equals("list")) {
+                return Collections.emptyList();
+            }
+
+            List<String> graveNumberList = graveManager.getGraveNumberList(playerUUID);
+
+            if (graveNumberList.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            return graveNumberList;
+        }
+
+        return Collections.emptyList();
+    }
+
+    private List<String> filterStringsByPrefix(List<String> stringList, String prefix) {
+        if (prefix == null || prefix.isEmpty() || stringList == null || stringList.isEmpty()) {
+            return Collections.emptyList();
+        } else {
+            return stringList.stream()
+                    .filter(string -> string.toLowerCase().startsWith(prefix.toLowerCase()))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .collect(Collectors.toList());
+        }
+    }
+}

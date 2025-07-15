@@ -1,0 +1,16 @@
+# # # # # # # # # # # # # # # # #
+#  SimpleGraves  Configuration  #
+#         By Flummidill         #
+# # # # # # # # # # # # # # # # #
+
+# Allows breaking other Player's Graves (Default: true)
+# Must be true or false
+grave-stealing: true
+
+# Maximum Amount of XP-Levels that will be stord in Graves (Default: 25)
+# Must be a Number from 0-100
+max-stored-xp: 25
+
+# The Config Version
+# Do not change this Value
+config-version: 1.0.0
