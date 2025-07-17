@@ -13,4 +13,4 @@ max-stored-xp: 25
 
 # The Config Version
 # Do not change this Value
-config-version: 1.0.0
+config-version: ${project.version}
