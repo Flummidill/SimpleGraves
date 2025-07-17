@@ -136,7 +136,7 @@ public class SimpleGraves extends JavaPlugin {
 
                 if (response.statusCode() == 200) {
                     JSONObject json = new JSONObject(response.body());
-                    return json.getString("tag_name");
+                    return json.getString("tag_name").split("v")[1];
                 } else {
                     return "error|java.net.ConnectException: Connection Failed with Code " + response.statusCode() + "\n        at SimpleGraves.jar//com.flummidill.simplegraves.SimpleGraves.getLatestVersion(SimpleGraves.java)";
                 }
