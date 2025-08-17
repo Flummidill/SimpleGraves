@@ -9,12 +9,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class PlayerDeathListener implements Listener {
 
+    private final SimpleGraves plugin;
     private final GraveManager graveManager;
 
     @EventHandler
@@ -33,26 +34,22 @@ public class PlayerDeathListener implements Listener {
                     player.sendMessage("§cSimpleGraves was unable to place your Grave!");
                     player.sendMessage("§aBecause of this, you can keep your Items!");
                 } else {
-                    player.sendMessage("Your Grave is Located at: " + graveLocation.getBlockX() + ", " + graveLocation.getBlockY() + ", " + graveLocation.getBlockZ());
                     graveManager.createGrave(player, graveLocation);
                 }
             }
         }
     }
 
-    private Location getValidGraveLocation(Location graveLocation) {
-        World world = graveLocation.getWorld();
-        if (world == null) return null;
-
+    public Location getValidGraveLocation(Location graveLocation) {
         int baseX = graveLocation.getBlockX();
         int baseY = graveLocation.getBlockY();
         int baseZ = graveLocation.getBlockZ();
 
         List<int[]> offsets = Arrays.asList(
                 new int[]{0, 0},      // center
+                new int[]{0, -1},     // north
                 new int[]{-1, 0},     // west
                 new int[]{1, 0},      // east
-                new int[]{0, -1},     // north
                 new int[]{0, 1},      // south
                 new int[]{-1, -1},    // northwest
                 new int[]{1, -1},     // northeast
@@ -60,7 +57,43 @@ public class PlayerDeathListener implements Listener {
                 new int[]{1, 1}       // southeast
         );
 
-        List<Material> UNSAFE_BLOCKS = Arrays.asList(
+        World world = graveLocation.getWorld();
+
+        if (baseY > world.getMaxHeight()) {
+            baseY = world.getMaxHeight() - 1;
+        }
+
+        if (baseY < world.getMinHeight()) {
+            baseY = world.getMinHeight() + 1;
+        }
+
+        for (int[] offset : offsets) {
+            int x = baseX + offset[0];
+            int z = baseZ + offset[1];
+
+            for (int y = baseY; y < world.getMaxHeight(); y++) {
+                Location Loc = new Location(world, x, y, z);
+                if (isSafeGraveLocation(Loc)) {
+                    return Loc;
+                }
+            }
+
+            for (int y = baseY; y > world.getMinHeight(); y--) {
+                Location Loc = new Location(world, x, y, z);
+                if (isSafeGraveLocation(Loc)) {
+                    return Loc;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public boolean isSafeGraveLocation(Location loc) {
+        Block block = loc.getBlock();
+        Material type = block.getType();
+
+        List<Material> UNSAFE_BLOCKS = new ArrayList<>(Arrays.asList(
                 Material.WHITE_BED,
                 Material.LIGHT_GRAY_BED,
                 Material.GRAY_BED,
@@ -143,47 +176,51 @@ public class PlayerDeathListener implements Listener {
                 Material.COMMAND_BLOCK,
                 Material.REPEATING_COMMAND_BLOCK,
                 Material.CHAIN_COMMAND_BLOCK,
-                Material.TEST_INSTANCE_BLOCK,
-                Material.TEST_BLOCK,
                 Material.LIGHT,
                 Material.STRUCTURE_BLOCK,
                 Material.JIGSAW,
                 Material.BARRIER,
                 Material.STRUCTURE_VOID
-        );
+        ));
 
-        for (int[] offset : offsets) {
-            int x = baseX + offset[0];
-            int z = baseZ + offset[1];
+        if(plugin.isNewerVersion(plugin.getServer().getVersion().split("\\(MC: ")[1].split("\\)")[0], "1.21.4")) {
+            UNSAFE_BLOCKS.add(Material.TEST_INSTANCE_BLOCK);
+            UNSAFE_BLOCKS.add(Material.TEST_BLOCK);
+        }
 
-            for (int y = baseY; y <= world.getMaxHeight(); y++) {
-                Block block = world.getBlockAt(x, y, z);
-                Material type = block.getType();
+        if (UNSAFE_BLOCKS.contains(type)) return false;
 
-                if (UNSAFE_BLOCKS.contains(type)) continue;
+        boolean isNearEndPortalFrame = false;
+        for (int dx = -3; dx <= 3 && !isNearEndPortalFrame; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                Block checkBlock = loc.getWorld().getBlockAt(loc.getBlockX() + dx, loc.getBlockY(), loc.getBlockZ() + dz);
+                if (checkBlock.getType() == Material.END_PORTAL_FRAME) {
+                    isNearEndPortalFrame = true;
+                    break;
+                }
+            }
+        }
 
-                boolean isNearEndPortalFrame = false;
-                for (int dx = -3; dx <= 3 && !isNearEndPortalFrame; dx++) {
+        boolean mayBeInEndFountainOrOnEndPlatform = false;
+        if ("world_the_end".equals(loc.getWorld().getName())) {
+            for (int dx = -3; dx <= 3 && !mayBeInEndFountainOrOnEndPlatform; dx++) {
+                for (int dy = -3; dy <= 3; dy++) {
                     for (int dz = -3; dz <= 3; dz++) {
-                        Block checkBlock = world.getBlockAt(x + dx, y, z + dz);
-                        if (checkBlock.getType() == Material.END_PORTAL_FRAME) {
-                            isNearEndPortalFrame = true;
+                        Block checkBlock = loc.getWorld().getBlockAt(loc.getBlockX() + dx, loc.getBlockY() + dy, loc.getBlockZ() + dz);
+                        if (checkBlock.getType() == Material.BEDROCK || checkBlock.getType() == Material.OBSIDIAN) {
+                            mayBeInEndFountainOrOnEndPlatform = true;
                             break;
                         }
                     }
                 }
-
-                if (isNearEndPortalFrame) continue;
-
-
-                return new Location(world, x, y, z, graveLocation.getYaw(), graveLocation.getPitch());
             }
         }
 
-        return null;
+        return !(isNearEndPortalFrame || mayBeInEndFountainOrOnEndPlatform);
     }
 
-    public PlayerDeathListener(GraveManager graveManager) {
+    public PlayerDeathListener(SimpleGraves simpleGraves, GraveManager graveManager) {
         this.graveManager = graveManager;
+        this.plugin = simpleGraves;
     }
 }

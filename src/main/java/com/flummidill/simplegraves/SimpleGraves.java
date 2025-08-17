@@ -51,7 +51,7 @@ public class SimpleGraves extends JavaPlugin {
     public void initializeEventListeners() {
         playerJoinListener = new PlayerJoinListener(this.graveManager);
         getServer().getPluginManager().registerEvents(playerJoinListener, this);
-        playerDeathListener = new PlayerDeathListener(this.graveManager);
+        playerDeathListener = new PlayerDeathListener(this, this.graveManager);
         getServer().getPluginManager().registerEvents(playerDeathListener, this);
         blockBreakListener = new BlockBreakListener(this.graveManager);
         getServer().getPluginManager().registerEvents(blockBreakListener, this);
@@ -74,7 +74,7 @@ public class SimpleGraves extends JavaPlugin {
         }
         config.set("grave-stealing", graveStealing);
 
-        if (maxStoredXP < 0 || maxStoredXP > 100) {
+        if (maxStoredXP < 0) {
             getLogger().warning("Configuration Error: \"max-stored-xp\" was configured incorrectly and reset to 25.");
             maxStoredXP = 25;
         }
@@ -186,7 +186,7 @@ public class SimpleGraves extends JavaPlugin {
         return false;
     }
 
-    public void executeServerCommand(String cmd) {
+    public void executeConsoleCommand(String cmd) {
         getServer().dispatchCommand(getServer().getConsoleSender(), cmd);
     }
 }

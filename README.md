@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/Flummidill/SimpleGraves/blob/1.0.0/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
+  <img src="https://github.com/Flummidill/SimpleGraves/blob/1.1.1/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
   <h1>SimpleGraves</h1>
 </div>
 

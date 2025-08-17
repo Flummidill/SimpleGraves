@@ -21,7 +21,6 @@ public class GraveProtector implements Listener {
         event.blockList().removeIf(this::isGraveBlock);
     }
 
-
     @EventHandler
     public void onBlockFromTo(BlockFromToEvent event) {
         Block block = event.getToBlock();
@@ -50,10 +49,8 @@ public class GraveProtector implements Listener {
     }
 
     private boolean isGraveBlock(Block block) {
-        if (block.getType() == Material.PLAYER_HEAD) {
-            if (graveManager.graveExistsLoc(block.getLocation())) {
-                return true;
-            }
+        if (block.getType() == Material.PLAYER_HEAD && graveManager.graveExistsLoc(block.getLocation())) {
+            return true;
         }
 
         return false;

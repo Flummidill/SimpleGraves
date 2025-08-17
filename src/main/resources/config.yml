@@ -8,7 +8,7 @@
 grave-stealing: true
 
 # Maximum Amount of XP-Levels that will be stord in Graves (Default: 25)
-# Must be a Number from 0-100
+# Must be a Number 0 or higher
 max-stored-xp: 25
 
 # The Config Version

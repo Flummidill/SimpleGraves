@@ -101,7 +101,6 @@ public class CommandHandler implements CommandExecutor {
                 "\n§9Y: §c" + Math.floor(graveLocation.getY()) +
                 "\n§9Z: §c" + Math.floor(graveLocation.getZ()));
 
-
         return true;
     }
 

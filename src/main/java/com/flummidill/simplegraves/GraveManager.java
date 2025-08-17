@@ -2,8 +2,12 @@ package com.flummidill.simplegraves;
 
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.entity.ExperienceOrb;
+import org.bukkit.Material;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.Skull;
+import org.bukkit.block.data.Rotatable;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
@@ -70,6 +74,7 @@ public class GraveManager {
 
     public void createGrave(Player player, Location loc) {
         UUID uuid = player.getUniqueId();
+        int graveNum = 1;
 
         // Save Grave in the Database
         try (PreparedStatement ps = connection.prepareStatement(
@@ -84,6 +89,7 @@ public class GraveManager {
                 checkGraveNum.setString(1, uuid.toString());
                 ResultSet rs = checkGraveNum.executeQuery();
                 if (rs.next()) {
+                    graveNum = rs.getInt(1) + 1;
                     ps.setInt(2, rs.getInt(1) + 1);
                 }
             }
@@ -107,26 +113,26 @@ public class GraveManager {
             ps.setDouble(6, z);
 
             // Facing Direction
-            String graveRotation = "0";
+            BlockFace graveRotation = BlockFace.NORTH;
             double pitch = 0f;
             double yaw = 0f;
 
             if (loc.getYaw() >= 135 && loc.getYaw() <= -135) {
                 // NORTH
                 yaw = 180f;
-                graveRotation = "0";
+                graveRotation = BlockFace.SOUTH;
             } else if (loc.getYaw() < 135 && loc.getYaw() > 45) {
                 // WEST
                 yaw = 90f;
-                graveRotation = "12";
+                graveRotation = BlockFace.EAST;
             } else if (loc.getYaw() <= 45 && loc.getYaw() >= -45) {
                 // SOUTH
                 yaw = 0f;
-                graveRotation = "8";
+                graveRotation = BlockFace.NORTH;
             } else if (loc.getYaw() < -45 && loc.getYaw() > -135) {
                 // EAST
                 yaw = -90f;
-                graveRotation = "4";
+                graveRotation = BlockFace.WEST;
             }
 
             ps.setDouble(7, pitch);
@@ -150,7 +156,7 @@ public class GraveManager {
             ps.setString(9, player_items);
 
             // Player's XP
-            double player_xp = player.getTotalExperience();
+            double player_xp = getTotalXP(player);
             if (player_xp > xpLimit) {
                 player_xp = xpLimit;
             }
@@ -165,25 +171,35 @@ public class GraveManager {
             player.setExp(0);
 
             // Place Gravestone
-            String worldName = "overworld";
+            String worldName;
 
             switch (loc.getWorld().getName()) {
                 case "world":
-                    worldName = "overworld";
+                    worldName = "{\"text\":\"The Overworld\",\"color\":\"green\"}";
                     break;
-
                 case "world_nether":
-                    worldName = "the_nether";
+                    worldName = "{\"text\":\"The Nether\",\"color\":\"red\"}";
                     break;
-
                 case "world_the_end":
-                    worldName = "the_end";
+                    worldName = "{\"text\":\"The End\",\"color\":\"#ffffaa\"}";
                     break;
-
+                default:
+                    worldName = "{\"text\":\"" + loc.getWorld().getName() + "\",\"color\":\"light_purple\"}";
+                    break;
             }
 
-            plugin.executeServerCommand("execute in " + worldName + " run setblock " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ() + " minecraft:player_head[rotation=" + graveRotation + "]");
-            plugin.executeServerCommand("execute in " + worldName + " run data merge block " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ() + " {profile:{name:\"" + player.getName() + "\"}}");
+            plugin.executeConsoleCommand("tellraw " + player.getName() + " " + "[{\"text\":\"Your Grave \",\"color\":\"white\"},{\"text\":\"#" + graveNum + "\",\"color\":\"gold\"},{\"text\":\" is Located at \",\"color\":\"white\"},{\"text\":\"" + loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ() + "\",\"color\":\"gold\"},{\"text\":\" in \",\"color\":\"white\"}," + worldName + "]");
+
+            Block block = loc.getBlock();
+            block.setType(Material.PLAYER_HEAD);
+            Rotatable rot = (Rotatable) block.getBlockData();
+            rot.setRotation(graveRotation);
+            block.setBlockData(rot);
+
+            Skull skull = (Skull) block.getState();
+            skull.setOwningPlayer(player);
+            skull.update();
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -350,20 +366,33 @@ public class GraveManager {
 
             // Player's XP
             double xpAmount = rs.getDouble("xp");
-            if (xpAmount > 0) {
-                int xpPerOrb = (int) Math.floor(xpAmount / 25);
 
-                for (int i = 0; i < 25; i++) {
-                    world.spawn(dropLoc, ExperienceOrb.class).setExperience(xpPerOrb);
-                }
+            int xpOrbCount;
+            int xpPerOrb;
+            int xpLeftOver;
 
-                int leftover = (int) xpAmount - (xpPerOrb * 25);
-
-                if (leftover > 0) {
-                    world.spawn(dropLoc, ExperienceOrb.class).setExperience(leftover);
-                }
+            if (xpAmount > 0 && xpAmount <= 25) {
+                xpOrbCount = (int) Math.floor(xpAmount);
+                xpPerOrb = 1;
+                xpLeftOver = 0;
+            } else if (xpAmount > 25) {
+                xpOrbCount = 25;
+                xpPerOrb = (int) Math.floor(xpAmount / 25);
+                xpLeftOver = (int) xpAmount - (xpPerOrb * 25);
+            } else {
+                xpOrbCount = 0;
+                xpPerOrb = 0;
+                xpLeftOver = 0;
             }
 
+            for (int i = 0; i < xpOrbCount; i++) {
+                world.spawn(dropLoc, ExperienceOrb.class).setExperience(xpPerOrb);
+            }
+            if (xpLeftOver > 0) {
+                world.spawn(dropLoc, ExperienceOrb.class).setExperience(xpLeftOver);
+            }
+
+            // Remove Grave from Database
             try (PreparedStatement delete = connection.prepareStatement(
                     "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
                 delete.setString(1, uuid);
@@ -410,12 +439,24 @@ public class GraveManager {
     }
 
     public void setMaxStordXP(int maxLevels) {
-        if (maxLevels >= 0 && maxLevels <= 15) {
-            xpLimit = 2 * maxLevels + 7;
-        } else if (maxLevels >= 16 && maxLevels <= 30) {
-            xpLimit = 5 * maxLevels - 38;
+        if (maxLevels <= 16) {
+            xpLimit = (maxLevels * maxLevels) + 6 * maxLevels;
+        } else if (maxLevels <= 31) {
+            xpLimit = (int) Math.floor(2.5 * (maxLevels * maxLevels) - 40.5 * maxLevels + 360);
         } else {
-            xpLimit = 9 * maxLevels - 158;
+            xpLimit = (int) Math.floor(4.5 * (maxLevels * maxLevels) - 162.5 * maxLevels + 2220);
+        }
+    }
+
+    public int getTotalXP(Player player) {
+        int XPlevel = player.getLevel();
+
+        if (XPlevel <= 16) {
+            return (XPlevel * XPlevel) + 6 * XPlevel;
+        } else if (XPlevel <= 31) {
+            return (int) Math.floor(2.5 * (XPlevel * XPlevel) - 40.5 * XPlevel + 360);
+        } else {
+            return (int) Math.floor(4.5 * (XPlevel * XPlevel) - 162.5 * XPlevel + 2220);
         }
     }
 
