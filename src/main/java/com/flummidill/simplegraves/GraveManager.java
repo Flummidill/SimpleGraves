@@ -6,6 +6,7 @@ import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.Rotatable;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.inventory.ItemStack;
@@ -23,8 +24,10 @@ public class GraveManager {
 
     private final SimpleGraves plugin;
     private final File dbFile;
-    private int xpLimit = 910;
     private Connection connection;
+
+    private int xpLimit = 910;
+    private boolean delete_vanishing_items = false;
 
     public GraveManager(SimpleGraves plugin) {
         this.plugin = plugin;
@@ -141,6 +144,7 @@ public class GraveManager {
             // Player's Items
             String player_items = Arrays.asList(player.getInventory().getContents()).stream()
                     .filter(Objects::nonNull)
+                    .filter(item -> !(delete_vanishing_items && item.getEnchantments().containsKey(Enchantment.VANISHING_CURSE)))
                     .map(item -> {
                         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
                              BukkitObjectOutputStream oos = new BukkitObjectOutputStream(baos)) {
@@ -555,5 +559,9 @@ public class GraveManager {
             e.printStackTrace();
         }
         return null;
+    }
+
+    public void deleteVanishingItems() {
+        this.delete_vanishing_items = true;
     }
 }

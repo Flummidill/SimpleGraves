@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/Flummidill/SimpleGraves/blob/1.1.1/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
+  <img src="https://github.com/Flummidill/SimpleGraves/blob/1.2.0/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
   <h1>SimpleGraves</h1>
 </div>
 
@@ -26,4 +26,5 @@ simplegraves.admin (Default: false) - Allow use of Admin Commands
 ```
 grave-stealing - Allows breaking other Player's Graves
 max-stored-xp - Maximum Amount of XP-Levels that will be stord in Graves
+delete-vanishing-items - Deletes Items with Curse of Vanishing
 ```

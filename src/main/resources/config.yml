@@ -11,6 +11,10 @@ grave-stealing: true
 # Must be a Number 0 or higher
 max-stored-xp: 25
 
+# Remove Items with Curse of Vanishing on Death (Default: false)
+# Must be true or false
+delete-vanishing-items: false
+
 # The Config Version
 # Do not change this Value
 config-version: ${project.version}

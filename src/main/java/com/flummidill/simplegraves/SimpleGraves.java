@@ -62,6 +62,8 @@ public class SimpleGraves extends JavaPlugin {
     private void loadConfig() {
         boolean graveStealing = getConfig().getBoolean("grave-stealing", true);
         int maxStoredXP = getConfig().getInt("max-stored-xp", 25);
+        boolean deleteVanishingItems = getConfig().getBoolean("delete-vanishing-items", false);
+
         String configVersion = getConfig().getString("config-version", "1.0.0");
         String currentVersion = getDescription().getVersion();
 
@@ -80,6 +82,11 @@ public class SimpleGraves extends JavaPlugin {
         }
         graveManager.setMaxStordXP(maxStoredXP);
         config.set("max-stored-xp", maxStoredXP);
+
+        if (deleteVanishingItems == true) {
+            graveManager.deleteVanishingItems();
+        }
+        config.set("delete-vanishing-items", deleteVanishingItems);
 
         if ("1.0.0".equals(configVersion) || isNewerVersion(configVersion, "1.0.0")) {
             if (isOlderVersion(configVersion, currentVersion)) {
