@@ -1,5 +1,7 @@
 <div align="center" id="toc">
-  <img src="https://github.com/Flummidill/SimpleGraves/blob/1.2.0/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
+  <a href="https://github.com/Flummidill/SimpleGraves/releases">
+    <img src="https://github.com/Flummidill/SimpleGraves/blob/1.2.0/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
+  </a>
 
   <ul style="list-style: none">
     <summary>
