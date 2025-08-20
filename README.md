@@ -1,6 +1,17 @@
-<div align="center">
+<div align="center" id="toc">
   <img src="https://github.com/Flummidill/SimpleGraves/blob/1.2.0/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
-  <h1>SimpleGraves</h1>
+
+  <ul style="list-style: none">
+    <summary>
+      <h1>SimpleGraves</h1>
+    </summary>
+  </ul>
+  
+  <a href="https://github.com/Flummidill/SimpleGraves/releases">
+    <img src="https://img.shields.io/github/downloads/Flummidill/SimpleGraves/v1.2.0/SimpleGraves-1.2.0.jar?style=for-the-badge&label=Downloads&color=29A100"</img>
+  </a>
+
+  <hr/>
 </div>
 
 ### Commands:
