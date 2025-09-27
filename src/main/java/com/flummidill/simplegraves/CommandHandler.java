@@ -4,16 +4,20 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
-
 import java.util.*;
+
 
 public class CommandHandler implements CommandExecutor {
 
-    private final GraveManager graveManager;
+    private final SimpleGraves plugin;
+    private final GraveManager manager;
 
-    public CommandHandler(GraveManager graveManager) {
-        this.graveManager = graveManager;
+
+    public CommandHandler(SimpleGraves plugin, GraveManager manager) {
+        this.plugin = plugin;
+        this.manager = manager;
     }
+
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -26,7 +30,7 @@ public class CommandHandler implements CommandExecutor {
 
         Player player = (Player) sender;
 
-        graveManager.saveOfflinePlayer(player.getUniqueId(), player.getName());
+        manager.saveOfflinePlayer(player.getUniqueId(), player.getName());
 
         String cmd = command.getName().toLowerCase();
 
@@ -70,12 +74,12 @@ public class CommandHandler implements CommandExecutor {
         int graveNumber = Integer.parseInt(args[0]);
 
 
-        if (!graveManager.graveExistsUUID(targetUUID, graveNumber)) {
+        if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
             player.sendMessage("§cYou don't have a Grave with Number #" + graveNumber);
             return false;
         }
 
-        Location graveLocation = graveManager.getGraveLocation(targetUUID, graveNumber);
+        Location graveLocation = manager.getGraveLocation(targetUUID, graveNumber);
 
         if (graveLocation == null || graveLocation.getWorld() == null) {
             player.sendMessage("§cFailed to retrieve the Grave Location");
@@ -130,7 +134,7 @@ public class CommandHandler implements CommandExecutor {
         if (targetPlr != null) {
             targetUUID = targetPlr.getUniqueId();
         } else {
-            targetUUID = graveManager.getOfflinePlayerUUID(targetName);
+            targetUUID = manager.getOfflinePlayerUUID(targetName);
             if (targetUUID == null) {
                 sender.sendMessage("§cPlayer '" + targetName + "' not found.");
                 return false;
@@ -139,11 +143,11 @@ public class CommandHandler implements CommandExecutor {
 
         switch (subcommand) {
             case "go":
-                if (!graveManager.graveExistsUUID(targetUUID, graveNumber)) {
+                if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
                     sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber);
                     return false;
                 }
-                Location tpLoc = graveManager.getGraveLocation(targetUUID, graveNumber);
+                Location tpLoc = manager.getGraveLocation(targetUUID, graveNumber);
                 if (tpLoc != null) {
                     sender.teleport(tpLoc);
                     sender.sendMessage("§aTeleported to " + targetName + "'s Grave #" + graveNumber);
@@ -154,9 +158,9 @@ public class CommandHandler implements CommandExecutor {
                 }
 
             case "list":
-                List<String> graveList = graveManager.getGraveNumberList(targetUUID);
+                List<String> graveList = manager.getGraveNumberList(targetUUID);
                 if (graveList.isEmpty()) {
-                    sender.sendMessage("§c" + graveManager.getOfflinePlayerName(targetUUID) + " currently no Graves.");
+                    sender.sendMessage("§c" + manager.getOfflinePlayerName(targetUUID) + " currently no Graves.");
                 } else {
                     sender.sendMessage("§a" + targetName + "'s Grave List:");
                     for (String graveNum : graveList) {
@@ -166,12 +170,12 @@ public class CommandHandler implements CommandExecutor {
                 return true;
 
             case "info":
-                if (!graveManager.graveExistsUUID(targetUUID, graveNumber)) {
+                if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
                     sender.sendMessage("§c" + targetName + " doesn't have a Grave with the number " + graveNumber + ".");
                     return false;
                 }
 
-                Location graveLocation = graveManager.getGraveLocation(targetUUID, graveNumber);
+                Location graveLocation = manager.getGraveLocation(targetUUID, graveNumber);
 
                 if (graveLocation == null || graveLocation.getWorld() == null) {
                     sender.sendMessage("§cFailed to retrieve the grave location or world.");
@@ -201,13 +205,13 @@ public class CommandHandler implements CommandExecutor {
                 return true;
 
             case "remove":
-                if (!graveManager.graveExistsUUID(targetUUID, graveNumber)) {
+                if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
                     sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber);
 
                     return false;
                 }
 
-                graveManager.removeGrave(targetUUID, graveNumber);
+                manager.removeGrave(targetUUID, graveNumber);
 
                 sender.sendMessage("§aRemoved " + targetName + "'s Grave #" + graveNumber);
 

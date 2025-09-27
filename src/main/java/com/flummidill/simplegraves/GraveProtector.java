@@ -6,10 +6,20 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.*;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
+
 
 public class GraveProtector implements Listener {
 
-    private final GraveManager graveManager;
+    private final SimpleGraves plugin;
+    private final GraveManager manager;
+
+
+    public GraveProtector(SimpleGraves plugin, GraveManager manager) {
+        this.plugin = plugin;
+        this.manager = manager;
+    }
+
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
@@ -48,15 +58,29 @@ public class GraveProtector implements Listener {
         }
     }
 
+    @EventHandler
+    public void onBlockPlace(BlockPlaceEvent event) {
+        Block block = event.getBlock();
+
+        if (isGraveBlock(block) && event.getBlockPlaced().getType() != Material.PLAYER_HEAD) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onBucketEmpty(PlayerBucketEmptyEvent event) {
+        Block block = event.getBlockClicked().getRelative(event.getBlockFace());
+
+        if (isGraveBlock(block)) {
+            event.setCancelled(true);
+        }
+    }
+
     private boolean isGraveBlock(Block block) {
-        if (block.getType() == Material.PLAYER_HEAD && graveManager.graveExistsLoc(block.getLocation())) {
+        if (manager.graveExistsLoc(block.getLocation())) {
             return true;
         }
 
         return false;
-    }
-
-    public GraveProtector(GraveManager graveManager) {
-        this.graveManager = graveManager;
     }
 }

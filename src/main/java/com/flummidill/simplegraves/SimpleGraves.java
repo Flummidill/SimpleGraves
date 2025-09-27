@@ -11,13 +11,15 @@ import java.net.http.HttpResponse;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
+
 public class SimpleGraves extends JavaPlugin {
 
+    private GraveManager manager;
     private PlayerJoinListener playerJoinListener;
     private PlayerDeathListener playerDeathListener;
     private BlockBreakListener blockBreakListener;
     private GraveProtector graveProtector;
-    private GraveManager graveManager;
+
 
     @Override
     public void onEnable() {
@@ -25,7 +27,7 @@ public class SimpleGraves extends JavaPlugin {
 
         // Initialize Grave-Manager
         getLogger().info("Initializing Grave-Manager...");
-        initializeGraveManager();
+        manager = new GraveManager(this);
 
         // Initialize Event Listeners
         getLogger().info("Initializing Event Listeners...");
@@ -44,18 +46,15 @@ public class SimpleGraves extends JavaPlugin {
         checkForUpdates();
     }
 
-    private void initializeGraveManager() {
-        graveManager = new GraveManager(this);
-    }
 
     public void initializeEventListeners() {
-        playerJoinListener = new PlayerJoinListener(this.graveManager);
+        playerJoinListener = new PlayerJoinListener(this, this.manager);
         getServer().getPluginManager().registerEvents(playerJoinListener, this);
-        playerDeathListener = new PlayerDeathListener(this, this.graveManager);
+        playerDeathListener = new PlayerDeathListener(this, this.manager);
         getServer().getPluginManager().registerEvents(playerDeathListener, this);
-        blockBreakListener = new BlockBreakListener(this.graveManager);
+        blockBreakListener = new BlockBreakListener(this, this.manager);
         getServer().getPluginManager().registerEvents(blockBreakListener, this);
-        graveProtector = new GraveProtector(this.graveManager);
+        graveProtector = new GraveProtector(this, this.manager);
         getServer().getPluginManager().registerEvents(graveProtector, this);
     }
 
@@ -80,11 +79,11 @@ public class SimpleGraves extends JavaPlugin {
             getLogger().warning("Configuration Error: \"max-stored-xp\" was configured incorrectly and reset to 25.");
             maxStoredXP = 25;
         }
-        graveManager.setMaxStordXP(maxStoredXP);
+        manager.setMaxStordXP(maxStoredXP);
         config.set("max-stored-xp", maxStoredXP);
 
         if (deleteVanishingItems == true) {
-            graveManager.deleteVanishingItems();
+            manager.deleteVanishingItems();
         }
         config.set("delete-vanishing-items", deleteVanishingItems);
 
@@ -103,8 +102,8 @@ public class SimpleGraves extends JavaPlugin {
     }
 
     public void registerCommands() {
-        CommandHandler commandHandler = new CommandHandler(graveManager);
-        TabCompleter tabCompleter = new TabCompleter(graveManager);
+        CommandHandler commandHandler = new CommandHandler(this, this.manager);
+        TabCompleter tabCompleter = new TabCompleter(this, this.manager);
 
         getCommand("graveinfo").setExecutor(commandHandler);
         getCommand("graveadmin").setExecutor(commandHandler);
@@ -192,6 +191,10 @@ public class SimpleGraves extends JavaPlugin {
 
         return false;
     }
+
+
+    // ------------------------------------------------------------ \\
+
 
     public void executeConsoleCommand(String cmd) {
         getServer().dispatchCommand(getServer().getConsoleSender(), cmd);

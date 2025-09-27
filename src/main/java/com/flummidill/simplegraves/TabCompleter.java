@@ -6,13 +6,18 @@ import org.bukkit.entity.Player;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
 public class TabCompleter implements org.bukkit.command.TabCompleter {
 
-    private final GraveManager graveManager;
+    private final SimpleGraves plugin;
+    private final GraveManager manager;
 
-    public TabCompleter(GraveManager graveManager) {
-        this.graveManager = graveManager;
+
+    public TabCompleter(SimpleGraves plugin, GraveManager manager) {
+        this.plugin = plugin;
+        this.manager = manager;
     }
+
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
@@ -21,7 +26,7 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
             Player player = (Player) sender;
             UUID uuid = player.getUniqueId();
 
-            graveManager.saveOfflinePlayer(uuid, player.getName());
+            manager.saveOfflinePlayer(uuid, player.getName());
 
             String cmd = command.getName().toLowerCase();
 
@@ -41,7 +46,7 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
 
     private List<String> autocompleteGraveInfo(Player player, String[] args) {
         if (args.length == 1) {
-            return graveManager.getGraveNumberList(player.getUniqueId());
+            return manager.getGraveNumberList(player.getUniqueId());
         }
 
         return Collections.emptyList();
@@ -71,7 +76,7 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
                 }
             }
 
-            List<String> offlinePlayerNames = graveManager.getOfflinePlayerNameList();
+            List<String> offlinePlayerNames = manager.getOfflinePlayerNameList();
             for (String name : offlinePlayerNames) {
                 if (!playerNames.contains(name)) {
                     playerNames.add(name);
@@ -92,8 +97,8 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
 
             if (target != null) {
                 playerUUID = target.getUniqueId();
-            } else if (graveManager.getOfflinePlayerUUID(playerName) != null) {
-                playerUUID = graveManager.getOfflinePlayerUUID(playerName);
+            } else if (manager.getOfflinePlayerUUID(playerName) != null) {
+                playerUUID = manager.getOfflinePlayerUUID(playerName);
             } else {
                 return Collections.emptyList();
             }
@@ -102,7 +107,7 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
                 return Collections.emptyList();
             }
 
-            List<String> graveNumberList = graveManager.getGraveNumberList(playerUUID);
+            List<String> graveNumberList = manager.getGraveNumberList(playerUUID);
 
             if (graveNumberList.isEmpty()) {
                 return Collections.emptyList();

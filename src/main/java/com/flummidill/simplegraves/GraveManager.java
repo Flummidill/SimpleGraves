@@ -20,14 +20,17 @@ import java.io.File;
 import java.sql.*;
 import java.util.*;
 
+
 public class GraveManager {
 
     private final SimpleGraves plugin;
+
     private final File dbFile;
     private Connection connection;
 
     private int xpLimit = 910;
     private boolean delete_vanishing_items = false;
+
 
     public GraveManager(SimpleGraves plugin) {
         this.plugin = plugin;
@@ -35,6 +38,7 @@ public class GraveManager {
         openConnection();
         createTables();
     }
+
 
     private void openConnection() {
         try {

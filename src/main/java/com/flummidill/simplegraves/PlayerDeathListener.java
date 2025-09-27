@@ -13,10 +13,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+
 public class PlayerDeathListener implements Listener {
 
     private final SimpleGraves plugin;
-    private final GraveManager graveManager;
+    private final GraveManager manager;
+
+
+    public PlayerDeathListener(SimpleGraves plugin, GraveManager manager) {
+        this.plugin = plugin;
+        this.manager = manager;
+    }
+
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
@@ -26,7 +34,7 @@ public class PlayerDeathListener implements Listener {
             Player player = (Player) entity;
 
             if (player.hasPermission("simplegraves.use")) {
-                graveManager.saveOfflinePlayer(player.getUniqueId(), player.getName());
+                manager.saveOfflinePlayer(player.getUniqueId(), player.getName());
 
                 Location graveLocation = getValidGraveLocation(player.getLocation());
                 if (graveLocation == null) {
@@ -34,7 +42,7 @@ public class PlayerDeathListener implements Listener {
                     player.sendMessage("§cSimpleGraves was unable to place your Grave!");
                     player.sendMessage("§aBecause of this, you can keep your Items!");
                 } else {
-                    graveManager.createGrave(player, graveLocation);
+                    manager.createGrave(player, graveLocation);
                 }
             }
         }
@@ -188,7 +196,7 @@ public class PlayerDeathListener implements Listener {
             UNSAFE_BLOCKS.add(Material.TEST_BLOCK);
         }
 
-        if (UNSAFE_BLOCKS.contains(type)) return false;
+        if (UNSAFE_BLOCKS.contains(type) || manager.graveExistsLoc(block.getLocation())) return false;
 
         boolean isNearEndPortalFrame = false;
         for (int dx = -3; dx <= 3 && !isNearEndPortalFrame; dx++) {
@@ -217,10 +225,5 @@ public class PlayerDeathListener implements Listener {
         }
 
         return !(isNearEndPortalFrame || mayBeInEndFountainOrOnEndPlatform);
-    }
-
-    public PlayerDeathListener(SimpleGraves simpleGraves, GraveManager graveManager) {
-        this.graveManager = graveManager;
-        this.plugin = simpleGraves;
     }
 }

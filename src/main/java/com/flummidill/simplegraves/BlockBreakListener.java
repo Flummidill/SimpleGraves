@@ -7,25 +7,39 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 
+
 public class BlockBreakListener implements Listener {
 
-    private final GraveManager graveManager;
+    private final SimpleGraves plugin;
+    private final GraveManager manager;
+
     public boolean graveStealing = true;
+
+
+    public BlockBreakListener(SimpleGraves plugin, GraveManager manager) {
+        this.plugin = plugin;
+        this.manager = manager;
+    }
+
+    public void disableGraveStealing() {
+        this.graveStealing = false;
+    }
+
 
     @EventHandler
     public void onGraveBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Location loc = event.getBlock().getLocation();
 
-        graveManager.saveOfflinePlayer(player.getUniqueId(), player.getName());
+        manager.saveOfflinePlayer(player.getUniqueId(), player.getName());
 
         if (loc.getBlock().getType() == Material.PLAYER_HEAD) {
-            if (graveManager.graveExistsLoc(loc)) {
+            if (manager.graveExistsLoc(loc)) {
                 if (graveStealing && player.hasPermission("simplegraves.use")) {
-                    graveManager.breakGrave(loc);
+                    manager.breakGrave(loc);
                 } else {
-                    if (graveManager.getGraveOwnerUUID(loc).equals(player.getUniqueId())) {
-                        graveManager.breakGrave(loc);
+                    if (manager.getGraveOwnerUUID(loc).equals(player.getUniqueId())) {
+                        manager.breakGrave(loc);
                     } else {
                         player.sendMessage("§cYou cannot break other Player's Graves!");
                         event.setCancelled(true);
@@ -33,13 +47,5 @@ public class BlockBreakListener implements Listener {
                 }
             }
         }
-    }
-
-    public void disableGraveStealing() {
-        this.graveStealing = false;
-    }
-
-    public BlockBreakListener(GraveManager graveManager) {
-        this.graveManager = graveManager;
     }
 }

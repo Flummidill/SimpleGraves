@@ -8,20 +8,30 @@ import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.ChatColor;
 
+
 public class PlayerJoinListener implements Listener {
 
-    private final GraveManager graveManager;
+    private final SimpleGraves plugin;
+    private final GraveManager manager;
+
     private boolean sendUpdateNotification = false;
+
+
+    public PlayerJoinListener(SimpleGraves plugin, GraveManager manager) {
+        this.plugin = plugin;
+        this.manager = manager;
+    }
 
     public void setUpdateAvailable(boolean updateAvailable) {
         this.sendUpdateNotification = updateAvailable;
     }
 
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        graveManager.saveOfflinePlayer(player.getUniqueId(), player.getName());
+        manager.saveOfflinePlayer(player.getUniqueId(), player.getName());
 
         if (sendUpdateNotification && player.hasPermission("simplegraves.admin")) {
             // Prefix
@@ -81,9 +91,5 @@ public class PlayerJoinListener implements Listener {
 
             player.spigot().sendMessage(message2);
         }
-    }
-
-    public PlayerJoinListener(GraveManager graveManager) {
-        this.graveManager = graveManager;
     }
 }
