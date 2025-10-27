@@ -92,13 +92,15 @@ public class GraveManager {
 
             // Grave Number
             try (PreparedStatement checkGraveNum = connection.prepareStatement(
-                    "SELECT COUNT(*) FROM graves WHERE uuid = ?")) {
+                    "SELECT COALESCE(MAX(grave_num), 0) FROM graves WHERE uuid = ?")) {
                 checkGraveNum.setString(1, uuid.toString());
+
                 ResultSet rs = checkGraveNum.executeQuery();
+
                 if (rs.next()) {
                     graveNum = rs.getInt(1) + 1;
-                    ps.setInt(2, rs.getInt(1) + 1);
                 }
+                ps.setInt(2, graveNum);
             }
 
             // Player's Dimension
