@@ -1,21 +1,11 @@
-<div align="center" id="toc">
-  <a href="https://github.com/Flummidill/SimpleGraves/releases">
-    <img src="https://github.com/Flummidill/SimpleGraves/blob/HEAD/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
-  </a>
-
-  <ul style="list-style: none">
-    <summary>
-      <h1>SimpleGraves</h1>
-    </summary>
-  </ul>
+<div align="center">
+  <img src="https://github.com/Flummidill/SimpleGraves/blob/HEAD/icons/SimpleGraves-250x250.png?raw=true" alt="SimpleGraves-Icon">
   
-  <a href="https://github.com/Flummidill/SimpleGraves/releases">
-    <img src="https://img.shields.io/github/downloads/Flummidill/SimpleGraves/v1.2.2/SimpleGraves-1.2.2.jar?style=for-the-badge&label=Downloads&color=29A100"</img>
+  <h1>SimpleGraves</h1>
+  <a href="https://modrinth.com/plugin/simple_graves/versions">
+    <img src="https://img.shields.io/modrinth/dt/simple_graves?style=for-the-badge&label=Downloads&color=29A100">
   </a>
 </div>
-
-
-<hr/>
 
 
 ## 🎯 Features
