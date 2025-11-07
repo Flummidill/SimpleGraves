@@ -33,7 +33,7 @@ public class PlayerJoinListener implements Listener {
 
         manager.saveOfflinePlayer(player.getUniqueId(), player.getName());
 
-        if (sendUpdateNotification && player.hasPermission("simplegraves.admin")) {
+        if (sendUpdateNotification && player.isOp()) {
             // Prefix
             TextComponent prefix = new TextComponent();
 

@@ -36,7 +36,7 @@ public class CommandHandler implements CommandExecutor {
 
         switch (cmd) {
             case "graveinfo":
-                if (!player.hasPermission("simplegraves.use")) {
+                if (!player.hasPermission("simplegraves.graveinfo")) {
                     player.sendMessage("§cYou don’t have permission to use this command.");
 
                     return false;
@@ -51,7 +51,7 @@ public class CommandHandler implements CommandExecutor {
                 return  handleGraveInfo(player, args);
 
             case "graveadmin":
-                if (!player.hasPermission("simplegraves.admin")) {
+                if (!player.hasPermission("simplegraves.graveadmin.show")) {
                     player.sendMessage("§cYou don’t have permission to use this command.");
 
                     return false;
@@ -109,39 +109,82 @@ public class CommandHandler implements CommandExecutor {
     }
 
     private boolean handleGraveAdmin(Player sender, String[] args) {
-        String subcommand = args[0].toLowerCase();
+        String action = args[0].toLowerCase();
+        String targetName = args[1];
+        String numberStr = args[2];
 
-        if (args.length < 2) {
-            sender.sendMessage("§cUsage: /graveadmin " + subcommand + " <player> [<number>]");
+        switch (action) {
+            case "go":
+                if (!sender.hasPermission("simplegraves.graveadmin.go")) {
+                    sender.sendMessage("§cYou don’t have permission to use this command.");
+                    return true;
+                }
+                break;
 
-            return false;
+            case "list":
+                if (!sender.hasPermission("simplegraves.graveadmin.list")) {
+                    sender.sendMessage("§cYou don’t have permission to use this command.");
+                    return true;
+                }
+                break;
+
+            case "info":
+                if (!sender.hasPermission("simplegraves.graveadmin.info")) {
+                    sender.sendMessage("§cYou don’t have permission to use this command.");
+                    return true;
+                }
+                break;
+
+            case "remove":
+                if (!sender.hasPermission("simplegraves.graveadmin.remove")) {
+                    sender.sendMessage("§cYou don’t have permission to use this command.");
+                    return true;
+                }
+                break;
+
+            default:
+                sender.sendMessage("Usage: /graveadmin <go|list|info|remove> [<player>] [<number>]");
+                return false;
         }
 
-        String targetName = args[1];
-        int graveNumber = 1;
-
+        int graveNumber = -1;
         if (args.length == 3) {
-            try {
-                graveNumber = Integer.parseInt(args[2]);
-            } catch (NumberFormatException e) {
-                sender.sendMessage("§cInvalid grave number.");
-                return false;
+            if (numberStr.equals("*")) {
+                if (!action.equals("remove")) {
+                    sender.sendMessage("§cYou can only use Number * with the remove Command.");
+                    return false;
+                }
+            } else {
+                try {
+                    graveNumber = Integer.parseInt(numberStr);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage("§cGrave must be a Number.");
+                    return false;
+                }
             }
         }
 
-        UUID targetUUID;
-        Player targetPlr = Bukkit.getPlayerExact(targetName);
-        if (targetPlr != null) {
-            targetUUID = targetPlr.getUniqueId();
+        UUID targetUUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        if (targetName.equals("*")) {
+            if (!action.equals("remove")) {
+                sender.sendMessage("§cYou can only use Player * with the remove Command.");
+                return false;
+            }
         } else {
-            targetUUID = manager.getOfflinePlayerUUID(targetName);
-            if (targetUUID == null) {
+            Player target = Bukkit.getPlayerExact(targetName);
+            if (target != null) {
+                targetUUID = target.getUniqueId();
+            } else if (manager.getOfflinePlayerUUID(targetName) != null) {
+                targetUUID = manager.getOfflinePlayerUUID(targetName);
+            } else {
                 sender.sendMessage("§cPlayer '" + targetName + "' not found.");
                 return false;
             }
+
+            targetName = manager.getOfflinePlayerName(targetUUID);
         }
 
-        switch (subcommand) {
+        switch (action) {
             case "go":
                 if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
                     sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber);

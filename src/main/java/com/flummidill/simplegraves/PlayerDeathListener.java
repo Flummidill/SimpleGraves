@@ -33,17 +33,15 @@ public class PlayerDeathListener implements Listener {
         if (entity instanceof Player) {
             Player player = (Player) entity;
 
-            if (player.hasPermission("simplegraves.use")) {
-                manager.saveOfflinePlayer(player.getUniqueId(), player.getName());
+            manager.saveOfflinePlayer(player.getUniqueId(), player.getName());
 
-                Location graveLocation = getValidGraveLocation(player.getLocation());
-                if (graveLocation == null) {
-                    player.sendMessage("§aIt's your Lucky Day!");
-                    player.sendMessage("§cSimpleGraves was unable to place your Grave!");
-                    player.sendMessage("§aBecause of this, you can keep your Items!");
-                } else {
-                    manager.createGrave(player, graveLocation);
-                }
+            Location graveLocation = getValidGraveLocation(player.getLocation());
+            if (graveLocation == null) {
+                player.sendMessage("§aIt's your Lucky Day!");
+                player.sendMessage("§cSimpleGraves was unable to place your Grave!");
+                player.sendMessage("§aBecause of this, you can keep your Items!");
+            } else {
+                manager.createGrave(player, graveLocation);
             }
         }
     }

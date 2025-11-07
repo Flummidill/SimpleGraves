@@ -6,17 +6,57 @@ commands:
   graveinfo:
     description: See Information about your Grave.
     usage: /graveinfo <number>
-    permission: simplegraves.use
+    permission: simplegraves.graveinfo
     permission-message: You do not have access to this command.
   graveadmin:
     description: Admin commands for SimpleGraves.
     usage: /graveadmin <go|list|info|remove> [<player>] [<number>]
-    permission: simplegraves.admin
+    permission: simplegraves.graveadmin.show
     permission-message: You do not have access to this command.
 permissions:
-  simplegraves.use:
-    description: Allows using Graves
+  simplegraves.player:
+    description: Allows of all Player Commands
     default: true
+    children:
+      simplegraves.graveinfo: true
+  simplegraves.graveinfo:
+    description: Allows use of the GraveInfo Command
+    default: true
+
   simplegraves.admin:
-    description: Allows using Admin Commands
+    description: Allows of all Admin Commands
+    default: op
+    children:
+      simplegraves.graveadmin: true
+  simplegraves.graveadmin:
+    description: Allows of all GraveAdmin Commands
+    default: op
+    children:
+      simplegraves.graveadmin.go: true
+      simplegraves.graveadmin.list: true
+      simplegraves.graveadmin.info: true
+      simplegraves.graveadmin.remove: true
+      simplegraves.graveadmin.show: true
+  simplegraves.graveadmin.go:
+    description: Allows use of the GraveAdmin Go Command
+    default: op
+    children:
+      simplegraves.graveadmin.show: true
+  simplegraves.graveadmin.list:
+    description: Allows use of the GraveAdmin List Command
+    default: op
+    children:
+      simplegraves.graveadmin.show: true
+  simplegraves.graveadmin.info:
+    description: Allows use of the GraveAdmin Info Command
+    default: op
+    children:
+      simplegraves.graveadmin.show: true
+  simplegraves.graveadmin.remove:
+    description: Allows use of the GraveAdmin Remove Command
+    default: op
+    children:
+      simplegraves.graveadmin.show: true
+  simplegraves.graveadmin.show:
+    description: Allows use of the GraveAdmin Command
     default: op

@@ -35,7 +35,7 @@ public class BlockBreakListener implements Listener {
 
         if (loc.getBlock().getType() == Material.PLAYER_HEAD) {
             if (manager.graveExistsLoc(loc)) {
-                if (graveStealing && player.hasPermission("simplegraves.use")) {
+                if (graveStealing) {
                     manager.breakGrave(loc);
                 } else {
                     if (manager.getGraveOwnerUUID(loc).equals(player.getUniqueId())) {

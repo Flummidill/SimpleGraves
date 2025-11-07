@@ -55,7 +55,13 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
     private List<String> autocompleteGraveAdmin(Player sender, String[] args) {
         if (args.length == 1) {
             String prefix = args[0].toLowerCase();
-            List<String> subcommands = Arrays.asList("go", "list", "info", "remove");
+
+            List<String> subcommands = new ArrayList<>();
+
+            if (sender.hasPermission("simplegraves.graveadmin.go")) subcommands.add("go");
+            if (sender.hasPermission("simplegraves.graveadmin.list")) subcommands.add("list");
+            if (sender.hasPermission("simplegraves.graveadmin.info")) subcommands.add("info");
+            if (sender.hasPermission("simplegraves.graveadmin.remove")) subcommands.add("remove");
 
             if (prefix.isEmpty()) {
                 return subcommands;
@@ -65,8 +71,12 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
         }
         if (args.length == 2) {
             String subcommand = args[0].toLowerCase();
-
             String prefix = args[1].toLowerCase();
+
+            if (!sender.hasPermission("simplegraves.graveadmin." + subcommand)) {
+                return Collections.emptyList();
+            }
+
             List<String> playerNames = new ArrayList<>();
 
             for (Player p : Bukkit.getOnlinePlayers()) {
@@ -94,6 +104,10 @@ public class TabCompleter implements org.bukkit.command.TabCompleter {
             String playerName = args[1];
             Player target = Bukkit.getPlayerExact(playerName);
             UUID playerUUID;
+
+            if (!sender.hasPermission("simplegraves.graveadmin." + subcommand)) {
+                return Collections.emptyList();
+            }
 
             if (target != null) {
                 playerUUID = target.getUniqueId();
