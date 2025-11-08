@@ -143,7 +143,6 @@ public class SimpleGraves extends JavaPlugin {
 
                 if (response.statusCode() == 200) {
                     JSONArray jsonArray = new JSONArray(response.body());
-                    System.out.println(jsonArray.toString());
                     if (!jsonArray.isEmpty()) {
                         JSONObject latestVersion = jsonArray.getJSONObject(0);
                         return latestVersion.getString("version_number");
@@ -154,7 +153,7 @@ public class SimpleGraves extends JavaPlugin {
                     return "error|No Version Data Found: Failed to Connect to Modrinth API";
                 }
             } catch (IOException | InterruptedException e) {
-                System.out.println("Failed to check for Updates!");
+                getLogger().warning("Failed to check for Updates!");
 
                 StringWriter stackTrace = new StringWriter();
                 e.printStackTrace(new PrintWriter(stackTrace));

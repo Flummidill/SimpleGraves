@@ -302,6 +302,87 @@ public class GraveManager {
         return null;
     }
 
+    public List<Location> getAllGraveLocations(UUID uuid) {
+        List<Location> graveLocations = new ArrayList<>();
+
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ?")) {
+            ps.setString(1, uuid.toString());
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                World world = Bukkit.getWorld(rs.getString("world"));
+                if (world == null) continue;
+
+                Location location = new Location(world,
+                        rs.getDouble("x"),
+                        rs.getDouble("y"),
+                        rs.getDouble("z"),
+                        (float) rs.getDouble("yaw"),
+                        (float) rs.getDouble("pitch"));
+                graveLocations.add(location);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return graveLocations;
+    }
+
+    public List<Location> getAllGraveLocationsWithNumber(int graveNum) {
+        List<Location> graveLocations = new ArrayList<>();
+
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT world, x, y, z, yaw, pitch FROM graves WHERE grave_num = ?")) {
+            ps.setInt(1, graveNum);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                World world = Bukkit.getWorld(rs.getString("world"));
+                if (world == null) continue;
+
+                Location location = new Location(world,
+                        rs.getDouble("x"),
+                        rs.getDouble("y"),
+                        rs.getDouble("z"),
+                        (float) rs.getDouble("yaw"),
+                        (float) rs.getDouble("pitch"));
+                graveLocations.add(location);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return graveLocations;
+    }
+
+    public List<Location> getEveryGraveLocation() {
+        List<Location> graveLocations = new ArrayList<>();
+
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT world, x, y, z, yaw, pitch FROM graves")) {
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                World world = Bukkit.getWorld(rs.getString("world"));
+                if (world == null) continue;
+
+                Location location = new Location(world,
+                        rs.getDouble("x"),
+                        rs.getDouble("y"),
+                        rs.getDouble("z"),
+                        (float) rs.getDouble("yaw"),
+                        (float) rs.getDouble("pitch"));
+                graveLocations.add(location);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return graveLocations;
+    }
+
+
     public UUID getGraveOwnerUUID(Location loc) {
         if (loc == null || loc.getWorld() == null) {
             return null;
@@ -442,6 +523,113 @@ public class GraveManager {
                 "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
             ps.setString(1, uuid.toString());
             ps.setInt(2, graveNum);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void removeAllGraves(UUID uuid) {
+        List<Location> graveLocations = getAllGraveLocations(uuid);
+        if (graveLocations.isEmpty()) return;
+
+        for (Location graveLocation : graveLocations) {
+            if (graveLocation == null) continue;
+
+            World world = graveLocation.getWorld();
+            if (world == null) continue;
+
+            Chunk chunk = graveLocation.getChunk();
+            boolean wasLoaded = chunk.isLoaded();
+
+            if (!wasLoaded) {
+                world.loadChunk(chunk);
+            }
+
+            Block graveBlock = graveLocation.getBlock();
+            if (graveBlock.getType() != Material.AIR) {
+                graveBlock.setType(Material.AIR);
+            }
+
+            if (!wasLoaded) {
+                world.unloadChunk(chunk);
+            }
+        }
+
+        try (PreparedStatement ps = connection.prepareStatement(
+                "DELETE FROM graves WHERE uuid = ?")) {
+            ps.setString(1, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void removeAllGravesWithNumber(int graveNum) {
+        List<Location> graveLocations = getAllGraveLocationsWithNumber(graveNum);
+        if (graveLocations.isEmpty()) return;
+
+        for (Location graveLocation : graveLocations) {
+            if (graveLocation == null) continue;
+
+            World world = graveLocation.getWorld();
+            if (world == null) continue;
+
+            Chunk chunk = graveLocation.getChunk();
+            boolean wasLoaded = chunk.isLoaded();
+
+            if (!wasLoaded) {
+                world.loadChunk(chunk);
+            }
+
+            Block graveBlock = graveLocation.getBlock();
+            if (graveBlock.getType() != Material.AIR) {
+                graveBlock.setType(Material.AIR);
+            }
+
+            if (!wasLoaded) {
+                world.unloadChunk(chunk);
+            }
+        }
+
+        try (PreparedStatement ps = connection.prepareStatement(
+                "DELETE FROM graves WHERE grave_num = ?")) {
+            ps.setInt(1, graveNum);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void removeEveryGrave() {
+        List<Location> graveLocations = getEveryGraveLocation();
+        if (graveLocations.isEmpty()) return;
+
+        for (Location graveLocation : graveLocations) {
+            if (graveLocation == null) continue;
+
+            World world = graveLocation.getWorld();
+            if (world == null) continue;
+
+            Chunk chunk = graveLocation.getChunk();
+            boolean wasLoaded = chunk.isLoaded();
+
+            if (!wasLoaded) {
+                world.loadChunk(chunk);
+            }
+
+            Block graveBlock = graveLocation.getBlock();
+            if (graveBlock.getType() != Material.AIR) {
+                graveBlock.setType(Material.AIR);
+            }
+
+            if (!wasLoaded) {
+                world.unloadChunk(chunk);
+            }
+        }
+
+        try (PreparedStatement ps = connection.prepareStatement(
+                "DELETE FROM graves")) {
             ps.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();

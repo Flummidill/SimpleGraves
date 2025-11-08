@@ -25,7 +25,7 @@ public class CommandHandler implements CommandExecutor {
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cOnly Players can run this Command!");
 
-            return false;
+            return true;
         }
 
         Player player = (Player) sender;
@@ -39,13 +39,13 @@ public class CommandHandler implements CommandExecutor {
                 if (!player.hasPermission("simplegraves.graveinfo")) {
                     player.sendMessage("§cYou don’t have permission to use this command.");
 
-                    return false;
+                    return true;
                 }
 
                 if (!(args.length == 1)) {
                     player.sendMessage("Usage: /graveinfo <number>");
 
-                    return false;
+                    return true;
                 }
 
                 return  handleGraveInfo(player, args);
@@ -54,36 +54,43 @@ public class CommandHandler implements CommandExecutor {
                 if (!player.hasPermission("simplegraves.graveadmin.show")) {
                     player.sendMessage("§cYou don’t have permission to use this command.");
 
-                    return false;
+                    return true;
                 }
 
-                if (args.length < 1 || args.length > 3) {
+                if (!(args.length == 2 || args.length == 3)) {
                     player.sendMessage("Usage: /graveadmin <go|list|info|delete> [<player>] [<number>]");
-                    return false;
+                    return true;
                 }
 
                 return handleGraveAdmin(player, args);
 
             default:
-                return false;
+                player.sendMessage("Usage: /graveadmin <go|list|info|delete> [<player>] [<number>]");
+                return true;
         }
     }
 
     private boolean handleGraveInfo(Player player, String[] args) {
         UUID targetUUID = player.getUniqueId();
-        int graveNumber = Integer.parseInt(args[0]);
+        int graveNumber;
 
+        try {
+            graveNumber = Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            player.sendMessage("§cGrave must be a Number.");
+            return true;
+        }
 
         if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
             player.sendMessage("§cYou don't have a Grave with Number #" + graveNumber);
-            return false;
+            return true;
         }
 
         Location graveLocation = manager.getGraveLocation(targetUUID, graveNumber);
 
         if (graveLocation == null || graveLocation.getWorld() == null) {
             player.sendMessage("§cFailed to retrieve the Grave Location");
-            return false;
+            return true;
         }
 
         String worldName = "The Overworld";
@@ -111,7 +118,7 @@ public class CommandHandler implements CommandExecutor {
     private boolean handleGraveAdmin(Player sender, String[] args) {
         String action = args[0].toLowerCase();
         String targetName = args[1];
-        String numberStr = args[2];
+        String numberStr = "-1";
 
         switch (action) {
             case "go":
@@ -144,33 +151,14 @@ public class CommandHandler implements CommandExecutor {
 
             default:
                 sender.sendMessage("Usage: /graveadmin <go|list|info|remove> [<player>] [<number>]");
-                return false;
-        }
-
-        int graveNumber = -1;
-        if (args.length == 3) {
-            if (numberStr.equals("*")) {
-                if (!action.equals("remove")) {
-                    sender.sendMessage("§cYou can only use Number * with the remove Command.");
-                    return false;
-                }
-            } else {
-                try {
-                    graveNumber = Integer.parseInt(numberStr);
-                } catch (NumberFormatException e) {
-                    sender.sendMessage("§cGrave must be a Number.");
-                    return false;
-                }
-            }
-        } else {
-            // No Number
+                return true;
         }
 
         UUID targetUUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
         if (targetName.equals("*")) {
             if (!action.equals("remove")) {
                 sender.sendMessage("§cYou can only use Player * with the remove Command.");
-                return false;
+                return true;
             }
         } else {
             Player target = Bukkit.getPlayerExact(targetName);
@@ -180,17 +168,46 @@ public class CommandHandler implements CommandExecutor {
                 targetUUID = manager.getOfflinePlayerUUID(targetName);
             } else {
                 sender.sendMessage("§cPlayer '" + targetName + "' not found.");
-                return false;
+                return true;
             }
 
             targetName = manager.getOfflinePlayerName(targetUUID);
+        }
+
+        int graveNumber = -1;
+        if (args.length == 3) {
+            numberStr = args[2];
+
+            if (numberStr.equals("*")) {
+                if (!action.equals("remove")) {
+                    sender.sendMessage("§cYou can only use Number * with the remove Command.");
+                    return true;
+                }
+            } else {
+                try {
+                    graveNumber = Integer.parseInt(numberStr);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage("§cGrave must be a Number.");
+                    return true;
+                }
+            }
+        }
+
+        if (args.length == 2 && !action.equals("list")) {
+            sender.sendMessage("§cPlease specify a Grave Number.");
+            return true;
+        }
+
+        if (graveNumber == -1 && !(action.equals("remove") || action.equals("list"))) {
+            sender.sendMessage("§cYou can only use Number * with the remove Command.");
+            return true;
         }
 
         switch (action) {
             case "go":
                 if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
                     sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber);
-                    return false;
+                    return true;
                 }
                 Location tpLoc = manager.getGraveLocation(targetUUID, graveNumber);
                 if (tpLoc != null) {
@@ -199,13 +216,13 @@ public class CommandHandler implements CommandExecutor {
                     return true;
                 } else {
                     sender.sendMessage("§cFailed to retrieve Grave Location.");
-                    return false;
+                    return true;
                 }
 
             case "list":
                 List<String> graveList = manager.getGraveNumberList(targetUUID);
                 if (graveList.isEmpty()) {
-                    sender.sendMessage("§c" + manager.getOfflinePlayerName(targetUUID) + " currently no Graves.");
+                    sender.sendMessage("§c" + manager.getOfflinePlayerName(targetUUID) + " currently has no Graves.");
                 } else {
                     sender.sendMessage("§a" + targetName + "'s Grave List:");
                     for (String graveNum : graveList) {
@@ -216,15 +233,15 @@ public class CommandHandler implements CommandExecutor {
 
             case "info":
                 if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
-                    sender.sendMessage("§c" + targetName + " doesn't have a Grave with the number " + graveNumber + ".");
-                    return false;
+                    sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber + ".");
+                    return true;
                 }
 
                 Location graveLocation = manager.getGraveLocation(targetUUID, graveNumber);
 
                 if (graveLocation == null || graveLocation.getWorld() == null) {
                     sender.sendMessage("§cFailed to retrieve the grave location or world.");
-                    return false;
+                    return true;
                 }
 
                 String worldName = "The Overworld";
@@ -250,22 +267,37 @@ public class CommandHandler implements CommandExecutor {
                 return true;
 
             case "remove":
+                if (targetName.equals("*")) {
+                    if (numberStr.equals("*")) {
+                        manager.removeEveryGrave();
+                        sender.sendMessage("§aRemoved all Graves of all Players.");
+                    } else {
+                        manager.removeAllGravesWithNumber(graveNumber);
+                        sender.sendMessage("§aRemoved all Graves with Number #" + graveNumber + ".");
+                    }
+                    break;
+                }
+
+                if (numberStr.equals("*")) {
+                    manager.removeAllGraves(targetUUID);
+                    sender.sendMessage("§aRemoved all Graves of " + targetName + ".");
+                    break;
+                }
+
                 if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
                     sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber);
 
-                    return false;
+                    return true;
                 }
-
                 manager.removeGrave(targetUUID, graveNumber);
-
                 sender.sendMessage("§aRemoved " + targetName + "'s Grave #" + graveNumber);
-
                 return true;
 
             default:
                 sender.sendMessage("Usage: /graveadmin <go|list|info|remove> [<player>] [<number>]");
 
-                return false;
+                return true;
         }
+        return true;
     }
 }
