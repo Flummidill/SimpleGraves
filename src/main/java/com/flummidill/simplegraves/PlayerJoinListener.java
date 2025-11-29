@@ -38,7 +38,7 @@ public class PlayerJoinListener implements Listener {
             TextComponent prefix = new TextComponent();
 
             TextComponent prefixPart1 = new TextComponent("[");
-            prefixPart1.setColor(ChatColor.BLUE);
+            prefixPart1.setColor(ChatColor.RED);
             prefixPart1.setBold(true);
             prefix.addExtra(prefixPart1);
 
@@ -48,12 +48,12 @@ public class PlayerJoinListener implements Listener {
             prefix.addExtra(prefixPart2);
 
             TextComponent prefixPart3 = new TextComponent("Graves");
-            prefixPart3.setColor(ChatColor.RED);
+            prefixPart3.setColor(ChatColor.BLUE);
             prefixPart3.setBold(true);
             prefix.addExtra(prefixPart3);
 
             TextComponent prefixPart4 = new TextComponent("]");
-            prefixPart4.setColor(ChatColor.BLUE);
+            prefixPart4.setColor(ChatColor.RED);
             prefixPart4.setBold(true);
             prefix.addExtra(prefixPart4);
 
