@@ -15,6 +15,8 @@ import org.bukkit.util.io.BukkitObjectOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.io.File;
 import java.sql.*;
@@ -25,6 +27,8 @@ public class GraveManager {
 
     private final SimpleGraves plugin;
 
+    public final Executor dbWorker;
+
     private final File dbFile;
     private Connection connection;
 
@@ -32,8 +36,10 @@ public class GraveManager {
     private boolean delete_vanishing_items = false;
 
 
-    public GraveManager(SimpleGraves plugin) {
+    public GraveManager(SimpleGraves plugin, DatabaseWorker dbWorker) {
         this.plugin = plugin;
+
+        this.dbWorker = query -> dbWorker.getDatabaseExecutor().execute(query);
         this.dbFile = new File(plugin.getDataFolder(), "graves.db");
         openConnection();
         createTables();
@@ -41,42 +47,46 @@ public class GraveManager {
 
 
     private void openConnection() {
-        try {
-            if (!plugin.getDataFolder().exists()) {
-                plugin.getDataFolder().mkdirs();
+        dbWorker.execute(() -> {
+            try {
+                if (!plugin.getDataFolder().exists()) {
+                    plugin.getDataFolder().mkdirs();
+                }
+                Class.forName("org.sqlite.JDBC");
+                connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+            } catch (Exception e) {
+                plugin.getLogger().severe("Could not connect to SQLite database!");
+                e.printStackTrace();
             }
-            Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
-        } catch (Exception e) {
-            plugin.getLogger().severe("Could not connect to SQLite database!");
-            e.printStackTrace();
-        }
+        });
     }
 
     private void createTables() {
-        try (Statement stmt = connection.createStatement()) {
-            // Graves Table
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS graves (" +
-                    "uuid TEXT NOT NULL," +
-                    "grave_num INT NOT NULL," +
-                    "world TEXT NOT NULL," +
-                    "x DOUBLE NOT NULL," +
-                    "y DOUBLE NOT NULL," +
-                    "z DOUBLE NOT NULL," +
-                    "pitch DOUBLE NOT NULL," +
-                    "yaw DOUBLE NOT NULL," +
-                    "items TEXT NOT NULL," +
-                    "xp DOUBLE NOT NULL)");
+        dbWorker.execute(() -> {
+            try (Statement stmt = connection.createStatement()) {
+                // Graves Table
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS graves (" +
+                        "uuid TEXT NOT NULL," +
+                        "grave_num INT NOT NULL," +
+                        "world TEXT NOT NULL," +
+                        "x DOUBLE NOT NULL," +
+                        "y DOUBLE NOT NULL," +
+                        "z DOUBLE NOT NULL," +
+                        "pitch DOUBLE NOT NULL," +
+                        "yaw DOUBLE NOT NULL," +
+                        "items TEXT NOT NULL," +
+                        "xp DOUBLE NOT NULL)");
 
-            // Offline-Players Table
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS offline_players (" +
-                    "uuid TEXT NOT NULL," +
-                    "plr_name TEXT NOT NULL UNIQUE," +
-                    "PRIMARY KEY(uuid))");
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Failed to create tables in SQLite database.");
-            e.printStackTrace();
-        }
+                // Offline-Players Table
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS offline_players (" +
+                        "uuid TEXT NOT NULL," +
+                        "plr_name TEXT NOT NULL UNIQUE," +
+                        "PRIMARY KEY(uuid))");
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to create tables in SQLite database.");
+                e.printStackTrace();
+            }
+        });
     }
 
     public void createGrave(Player player, Location loc) {
@@ -215,20 +225,24 @@ public class GraveManager {
         }
     }
 
-    public boolean graveExistsUUID(UUID uuid, int graveNum) {
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT 1 FROM graves WHERE uuid = ? AND grave_num = ?")) {
-            ps.setString(1, uuid.toString());
-            ps.setInt(2, graveNum);
+    public CompletableFuture<Boolean> graveExistsUUID(UUID uuid, int graveNum) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT 1 FROM graves WHERE uuid = ? AND grave_num = ?")) {
 
-            // Grave Exists?
-            return ps.executeQuery().next();
+                ps.setString(1, uuid.toString());
+                ps.setInt(2, graveNum);
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+                // Grave Exists?
+                return ps.executeQuery().next();
 
-        return false;
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+
+            return false;
+
+        }, dbWorker);
     }
 
     public boolean graveExistsLoc(Location loc) {
@@ -280,108 +294,164 @@ public class GraveManager {
         return graveNumberList;
     }
 
-    public Location getGraveLocation(UUID uuid, int graveNum) {
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ? AND grave_num = ?")) {
-            ps.setString(1, uuid.toString());
-            ps.setInt(2, graveNum);
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                World world = Bukkit.getWorld(rs.getString("world"));
-                if (world == null) return null;
-                return new Location(world,
-                        rs.getDouble("x"),
-                        rs.getDouble("y"),
-                        rs.getDouble("z"),
-                        (float) rs.getDouble("yaw"),
-                        (float) rs.getDouble("pitch"));
+    public CompletableFuture<List<String>> getGraveNumberListAsync(UUID uuid) {
+        final UUID finalUUID = uuid;
+        CompletableFuture<List<String>> future = new CompletableFuture<>();
+
+        dbWorker.execute(() -> {
+            List<String> graveNumberList = new ArrayList<>();
+
+            try (PreparedStatement ps = connection.prepareStatement("SELECT grave_num FROM graves WHERE uuid = ?")) {
+                ps.setString(1, finalUUID.toString());
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    int graveNum = rs.getInt("grave_num");
+                    graveNumberList.add(String.valueOf(graveNum));
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
+
+            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveNumberList));
+        });
+
+        return future;
     }
 
-    public List<Location> getAllGraveLocations(UUID uuid) {
-        List<Location> graveLocations = new ArrayList<>();
+    public CompletableFuture<Location> getGraveLocation(UUID uuid, int graveNum) {
+        final UUID finalUUID = uuid;
+        final int finalGraveNum = graveNum;
+        CompletableFuture<Location> future = new CompletableFuture<>();
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ?")) {
-            ps.setString(1, uuid.toString());
-            ResultSet rs = ps.executeQuery();
+        dbWorker.execute(() -> {
+            Location graveLocation = null;
 
-            while (rs.next()) {
-                World world = Bukkit.getWorld(rs.getString("world"));
-                if (world == null) continue;
-
-                Location location = new Location(world,
-                        rs.getDouble("x"),
-                        rs.getDouble("y"),
-                        rs.getDouble("z"),
-                        (float) rs.getDouble("yaw"),
-                        (float) rs.getDouble("pitch"));
-                graveLocations.add(location);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ? AND grave_num = ?")) {
+                ps.setString(1, finalUUID.toString());
+                ps.setInt(2, finalGraveNum);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    World world = Bukkit.getWorld(rs.getString("world"));
+                    if (world != null) {
+                        graveLocation = new Location(world,
+                                rs.getDouble("x"),
+                                rs.getDouble("y"),
+                                rs.getDouble("z"),
+                                (float) rs.getDouble("yaw"),
+                                (float) rs.getDouble("pitch"));
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
 
-        return graveLocations;
+            Location result = graveLocation;
+            Bukkit.getScheduler().runTask(plugin, () -> future.complete(result));
+        });
+
+        return future;
     }
 
-    public List<Location> getAllGraveLocationsWithNumber(int graveNum) {
-        List<Location> graveLocations = new ArrayList<>();
+    public CompletableFuture<List<Location>> getAllGraveLocations(UUID uuid) {
+        final UUID finalUUID = uuid;
+        CompletableFuture<List<Location>> future = new CompletableFuture<>();
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT world, x, y, z, yaw, pitch FROM graves WHERE grave_num = ?")) {
-            ps.setInt(1, graveNum);
-            ResultSet rs = ps.executeQuery();
+        dbWorker.execute(() -> {
+            List<Location> graveLocations = new ArrayList<>();
 
-            while (rs.next()) {
-                World world = Bukkit.getWorld(rs.getString("world"));
-                if (world == null) continue;
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT world, x, y, z, yaw, pitch FROM graves WHERE uuid = ?")) {
+                ps.setString(1, finalUUID.toString());
+                ResultSet rs = ps.executeQuery();
 
-                Location location = new Location(world,
-                        rs.getDouble("x"),
-                        rs.getDouble("y"),
-                        rs.getDouble("z"),
-                        (float) rs.getDouble("yaw"),
-                        (float) rs.getDouble("pitch"));
-                graveLocations.add(location);
+                while (rs.next()) {
+                    World world = Bukkit.getWorld(rs.getString("world"));
+                    if (world == null) continue;
+
+                    Location location = new Location(world,
+                            rs.getDouble("x"),
+                            rs.getDouble("y"),
+                            rs.getDouble("z"),
+                            (float) rs.getDouble("yaw"),
+                            (float) rs.getDouble("pitch"));
+                    graveLocations.add(location);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
 
-        return graveLocations;
+            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveLocations));
+        });
+
+        return future;
     }
 
-    public List<Location> getEveryGraveLocation() {
-        List<Location> graveLocations = new ArrayList<>();
+    public CompletableFuture<List<Location>> getAllGraveLocationsWithNumber(int graveNum) {
+        final int finalGraveNum = graveNum;
+        CompletableFuture<List<Location>> future = new CompletableFuture<>();
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT world, x, y, z, yaw, pitch FROM graves")) {
-            ResultSet rs = ps.executeQuery();
+        dbWorker.execute(() -> {
+            List<Location> graveLocations = new ArrayList<>();
 
-            while (rs.next()) {
-                World world = Bukkit.getWorld(rs.getString("world"));
-                if (world == null) continue;
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT world, x, y, z, yaw, pitch FROM graves WHERE grave_num = ?")) {
+                ps.setInt(1, finalGraveNum);
+                ResultSet rs = ps.executeQuery();
 
-                Location location = new Location(world,
-                        rs.getDouble("x"),
-                        rs.getDouble("y"),
-                        rs.getDouble("z"),
-                        (float) rs.getDouble("yaw"),
-                        (float) rs.getDouble("pitch"));
-                graveLocations.add(location);
+                while (rs.next()) {
+                    World world = Bukkit.getWorld(rs.getString("world"));
+                    if (world == null) continue;
+
+                    Location location = new Location(world,
+                            rs.getDouble("x"),
+                            rs.getDouble("y"),
+                            rs.getDouble("z"),
+                            (float) rs.getDouble("yaw"),
+                            (float) rs.getDouble("pitch"));
+                    graveLocations.add(location);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
 
-        return graveLocations;
+            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveLocations));
+        });
+
+        return future;
     }
 
+    public CompletableFuture<List<Location>> getEveryGraveLocation() {
+        CompletableFuture<List<Location>> future = new CompletableFuture<>();
+
+        dbWorker.execute(() -> {
+            List<Location> graveLocations = new ArrayList<>();
+
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT world, x, y, z, yaw, pitch FROM graves")) {
+                ResultSet rs = ps.executeQuery();
+
+                while (rs.next()) {
+                    World world = Bukkit.getWorld(rs.getString("world"));
+                    if (world == null) continue;
+
+                    Location location = new Location(world,
+                            rs.getDouble("x"),
+                            rs.getDouble("y"),
+                            rs.getDouble("z"),
+                            (float) rs.getDouble("yaw"),
+                            (float) rs.getDouble("pitch"));
+                    graveLocations.add(location);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+
+            Bukkit.getScheduler().runTask(plugin, () -> future.complete(graveLocations));
+        });
+
+        return future;
+    }
 
     public UUID getGraveOwnerUUID(Location loc) {
         if (loc == null || loc.getWorld() == null) {
@@ -415,225 +485,258 @@ public class GraveManager {
             return;
         }
 
-        String worldName = loc.getWorld().getName();
-        double x = Math.floor(loc.getX()) + 0.5;
-        double y = Math.floor(loc.getY()) + 0.5;
-        double z = Math.floor(loc.getZ()) + 0.5;
+        final String worldName = loc.getWorld().getName();
+        final double x = Math.floor(loc.getX()) + 0.5;
+        final double y = Math.floor(loc.getY()) + 0.5;
+        final double z = Math.floor(loc.getZ()) + 0.5;
 
-        try (PreparedStatement select = connection.prepareStatement(
-                "SELECT uuid, grave_num, items, xp FROM graves WHERE world = ? AND x = ? AND y = ? AND z = ?")) {
+        dbWorker.execute(() -> {
+            try (PreparedStatement select = connection.prepareStatement(
+                    "SELECT uuid, grave_num, items, xp FROM graves WHERE world = ? AND x = ? AND y = ? AND z = ?")) {
 
-            select.setString(1, worldName);
-            select.setDouble(2, x);
-            select.setDouble(3, y);
-            select.setDouble(4, z);
+                select.setString(1, worldName);
+                select.setDouble(2, x);
+                select.setDouble(3, y);
+                select.setDouble(4, z);
 
-            ResultSet rs = select.executeQuery();
+                ResultSet rs = select.executeQuery();
 
-            if (!rs.next()) return;
+                if (!rs.next()) return;
 
-            String uuid = rs.getString("uuid");
-            String serializedItems = rs.getString("items");
-            World world = Bukkit.getWorld(worldName);
-            Location dropLoc = new Location(world, x, y, z);
+                final String uuid = rs.getString("uuid");
+                final String serializedItems = rs.getString("items");
+                final int graveNum = rs.getInt("grave_num");
+                final double xpAmount = rs.getDouble("xp");
 
-            // Player's Items
-            String[] base64Items = serializedItems.split("\\|");
-            for (String base64 : base64Items) {
-                if (base64.isEmpty()) continue;
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    World world = Bukkit.getWorld(worldName);
+                    Location dropLoc = new Location(world, x, y, z);
 
-                try (ByteArrayInputStream bais = new ByteArrayInputStream(Base64.getDecoder().decode(base64));
-                     BukkitObjectInputStream ois = new BukkitObjectInputStream(bais)) {
+                    // Player's Items
+                    String[] base64Items = serializedItems.split("\\|");
+                    for (String base64 : base64Items) {
+                        if (base64.isEmpty()) continue;
 
-                    ItemStack item = (ItemStack) ois.readObject();
-                    if (item != null && item.getType() != Material.AIR) {
-                        world.dropItemNaturally(dropLoc, item);
+                        try (ByteArrayInputStream bais = new ByteArrayInputStream(Base64.getDecoder().decode(base64));
+                             BukkitObjectInputStream ois = new BukkitObjectInputStream(bais)) {
+
+                            ItemStack item = (ItemStack) ois.readObject();
+                            if (item != null && item.getType() != Material.AIR && world != null) {
+                                world.dropItemNaturally(dropLoc, item);
+                            }
+
+                        } catch (IOException | ClassNotFoundException e) {
+                            e.printStackTrace();
+                        }
                     }
 
-                } catch (IOException | ClassNotFoundException e) {
-                    e.printStackTrace();
+                    // Player's XP
+                    int xpOrbCount;
+                    int xpPerOrb;
+                    int xpLeftOver;
+
+                    if (xpAmount > 0 && xpAmount <= 25) {
+                        xpOrbCount = (int) Math.floor(xpAmount);
+                        xpPerOrb = 1;
+                        xpLeftOver = 0;
+                    } else if (xpAmount > 25) {
+                        xpOrbCount = 25;
+                        xpPerOrb = (int) Math.floor(xpAmount / 25);
+                        xpLeftOver = (int) xpAmount - (xpPerOrb * 25);
+                    } else {
+                        xpOrbCount = 0;
+                        xpPerOrb = 0;
+                        xpLeftOver = 0;
+                    }
+
+                    if (world != null) {
+                        for (int i = 0; i < xpOrbCount; i++) {
+                            world.spawn(dropLoc, ExperienceOrb.class).setExperience(xpPerOrb);
+                        }
+                        if (xpLeftOver > 0) {
+                            world.spawn(dropLoc, ExperienceOrb.class).setExperience(xpLeftOver);
+                        }
+                    }
+                });
+
+                // Remove Grave from Database
+                try (PreparedStatement delete = connection.prepareStatement(
+                        "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
+                    delete.setString(1, uuid);
+                    delete.setInt(2, graveNum);
+                    delete.executeUpdate();
                 }
+
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-
-            // Player's XP
-            double xpAmount = rs.getDouble("xp");
-
-            int xpOrbCount;
-            int xpPerOrb;
-            int xpLeftOver;
-
-            if (xpAmount > 0 && xpAmount <= 25) {
-                xpOrbCount = (int) Math.floor(xpAmount);
-                xpPerOrb = 1;
-                xpLeftOver = 0;
-            } else if (xpAmount > 25) {
-                xpOrbCount = 25;
-                xpPerOrb = (int) Math.floor(xpAmount / 25);
-                xpLeftOver = (int) xpAmount - (xpPerOrb * 25);
-            } else {
-                xpOrbCount = 0;
-                xpPerOrb = 0;
-                xpLeftOver = 0;
-            }
-
-            for (int i = 0; i < xpOrbCount; i++) {
-                world.spawn(dropLoc, ExperienceOrb.class).setExperience(xpPerOrb);
-            }
-            if (xpLeftOver > 0) {
-                world.spawn(dropLoc, ExperienceOrb.class).setExperience(xpLeftOver);
-            }
-
-            // Remove Grave from Database
-            try (PreparedStatement delete = connection.prepareStatement(
-                    "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
-                delete.setString(1, uuid);
-                delete.setInt(2, rs.getInt("grave_num"));
-                delete.executeUpdate();
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        });
     }
 
-    public void removeGrave(UUID uuid, int graveNum) {
-        Location graveLocation = getGraveLocation(uuid, graveNum);
-        if (graveLocation == null) return;
+    public void removeGrave(UUID uuid, int graveNum, boolean dropContents) {
+        getGraveLocation(uuid, graveNum).thenAccept(graveLocation -> {
+            if (graveLocation == null) return;
 
-        World world = graveLocation.getWorld();
-        if (world == null) return;
+            World world = graveLocation.getWorld();
+            if (world == null) return;
 
-        Chunk chunk = graveLocation.getChunk();
-        boolean wasLoaded = chunk.isLoaded();
+            Chunk chunk = graveLocation.getChunk();
+            boolean wasLoaded = chunk.isLoaded();
 
-        if (!wasLoaded) {
-            world.loadChunk(chunk);
-        }
+            dbWorker.execute(() -> {
+                if (!wasLoaded) {
+                    world.loadChunk(chunk);
+                }
 
-        Block graveBlock = graveLocation.getBlock();
-        if (graveBlock.getType() != Material.AIR) {
-            graveBlock.setType(Material.AIR);
-        }
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    Block graveBlock = graveLocation.getBlock();
+                    if (graveBlock.getType() != Material.AIR) {
+                        graveBlock.setType(Material.AIR);
+                    }
 
-        if (!wasLoaded) {
-            world.unloadChunk(chunk);
-        }
+                    if (dropContents) {
+                        breakGrave(graveLocation);
+                    }
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
-            ps.setString(1, uuid.toString());
-            ps.setInt(2, graveNum);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+                    if (!wasLoaded) {
+                        world.unloadChunk(chunk);
+                    }
+
+                    dbWorker.execute(() -> {
+                        try (PreparedStatement ps = connection.prepareStatement(
+                                "DELETE FROM graves WHERE uuid = ? AND grave_num = ?")) {
+                            ps.setString(1, uuid.toString());
+                            ps.setInt(2, graveNum);
+                            ps.executeUpdate();
+                        } catch (SQLException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                });
+            });
+        });
     }
 
     public void removeAllGraves(UUID uuid) {
-        List<Location> graveLocations = getAllGraveLocations(uuid);
-        if (graveLocations.isEmpty()) return;
+        getAllGraveLocations(uuid).thenAccept(graveLocations -> {
+            if (graveLocations.isEmpty()) return;
 
-        for (Location graveLocation : graveLocations) {
-            if (graveLocation == null) continue;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                for (Location graveLocation : graveLocations) {
+                    if (graveLocation == null) continue;
 
-            World world = graveLocation.getWorld();
-            if (world == null) continue;
+                    World world = graveLocation.getWorld();
+                    if (world == null) continue;
 
-            Chunk chunk = graveLocation.getChunk();
-            boolean wasLoaded = chunk.isLoaded();
+                    Chunk chunk = graveLocation.getChunk();
+                    boolean wasLoaded = chunk.isLoaded();
 
-            if (!wasLoaded) {
-                world.loadChunk(chunk);
-            }
+                    if (!wasLoaded) {
+                        world.loadChunk(chunk);
+                    }
 
-            Block graveBlock = graveLocation.getBlock();
-            if (graveBlock.getType() != Material.AIR) {
-                graveBlock.setType(Material.AIR);
-            }
+                    Block graveBlock = graveLocation.getBlock();
+                    if (graveBlock.getType() != Material.AIR) {
+                        graveBlock.setType(Material.AIR);
+                    }
 
-            if (!wasLoaded) {
-                world.unloadChunk(chunk);
-            }
-        }
+                    if (!wasLoaded) {
+                        world.unloadChunk(chunk);
+                    }
+                }
+            });
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "DELETE FROM graves WHERE uuid = ?")) {
-            ps.setString(1, uuid.toString());
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+            dbWorker.execute(() -> {
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "DELETE FROM graves WHERE uuid = ?")) {
+                    ps.setString(1, uuid.toString());
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            });
+        });
     }
 
     public void removeAllGravesWithNumber(int graveNum) {
-        List<Location> graveLocations = getAllGraveLocationsWithNumber(graveNum);
-        if (graveLocations.isEmpty()) return;
+        getAllGraveLocationsWithNumber(graveNum).thenAccept(graveLocations -> {
+            if (graveLocations.isEmpty()) return;
 
-        for (Location graveLocation : graveLocations) {
-            if (graveLocation == null) continue;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                for (Location graveLocation : graveLocations) {
+                    if (graveLocation == null) continue;
 
-            World world = graveLocation.getWorld();
-            if (world == null) continue;
+                    World world = graveLocation.getWorld();
+                    if (world == null) continue;
 
-            Chunk chunk = graveLocation.getChunk();
-            boolean wasLoaded = chunk.isLoaded();
+                    Chunk chunk = graveLocation.getChunk();
+                    boolean wasLoaded = chunk.isLoaded();
 
-            if (!wasLoaded) {
-                world.loadChunk(chunk);
-            }
+                    if (!wasLoaded) {
+                        world.loadChunk(chunk);
+                    }
 
-            Block graveBlock = graveLocation.getBlock();
-            if (graveBlock.getType() != Material.AIR) {
-                graveBlock.setType(Material.AIR);
-            }
+                    Block graveBlock = graveLocation.getBlock();
+                    if (graveBlock.getType() != Material.AIR) {
+                        graveBlock.setType(Material.AIR);
+                    }
 
-            if (!wasLoaded) {
-                world.unloadChunk(chunk);
-            }
-        }
+                    if (!wasLoaded) {
+                        world.unloadChunk(chunk);
+                    }
+                }
+            });
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "DELETE FROM graves WHERE grave_num = ?")) {
-            ps.setInt(1, graveNum);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+            dbWorker.execute(() -> {
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "DELETE FROM graves WHERE grave_num = ?")) {
+                    ps.setInt(1, graveNum);
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            });
+        });
     }
 
     public void removeEveryGrave() {
-        List<Location> graveLocations = getEveryGraveLocation();
-        if (graveLocations.isEmpty()) return;
+        getEveryGraveLocation().thenAccept(graveLocations -> {
+            if (graveLocations.isEmpty()) return;
 
-        for (Location graveLocation : graveLocations) {
-            if (graveLocation == null) continue;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                for (Location graveLocation : graveLocations) {
+                    if (graveLocation == null) continue;
 
-            World world = graveLocation.getWorld();
-            if (world == null) continue;
+                    World world = graveLocation.getWorld();
+                    if (world == null) continue;
 
-            Chunk chunk = graveLocation.getChunk();
-            boolean wasLoaded = chunk.isLoaded();
+                    Chunk chunk = graveLocation.getChunk();
+                    boolean wasLoaded = chunk.isLoaded();
 
-            if (!wasLoaded) {
-                world.loadChunk(chunk);
-            }
+                    if (!wasLoaded) {
+                        world.loadChunk(chunk);
+                    }
 
-            Block graveBlock = graveLocation.getBlock();
-            if (graveBlock.getType() != Material.AIR) {
-                graveBlock.setType(Material.AIR);
-            }
+                    Block graveBlock = graveLocation.getBlock();
+                    if (graveBlock.getType() != Material.AIR) {
+                        graveBlock.setType(Material.AIR);
+                    }
 
-            if (!wasLoaded) {
-                world.unloadChunk(chunk);
-            }
-        }
+                    if (!wasLoaded) {
+                        world.unloadChunk(chunk);
+                    }
+                }
+            });
 
-        try (PreparedStatement ps = connection.prepareStatement(
-                "DELETE FROM graves")) {
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+            dbWorker.execute(() -> {
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "DELETE FROM graves")) {
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            });
+        });
     }
 
     public void setMaxStordXP(int maxLevels) {
@@ -659,53 +762,54 @@ public class GraveManager {
     }
 
     public void saveOfflinePlayer(UUID uuid, String playerName) {
-        try {
-            // Check If UUID already exists
-            boolean uuidExists = false;
-            PreparedStatement ps1 = connection.prepareStatement(
-                "SELECT 1 FROM offline_players WHERE uuid = ? LIMIT 1");
-            ps1.setString(1, uuid.toString());
-            ResultSet rs1 = ps1.executeQuery();
-            if (rs1.next()) {
-                uuidExists = true;
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Check If UUID already exists
+                boolean uuidExists = false;
+                PreparedStatement ps1 = connection.prepareStatement(
+                        "SELECT 1 FROM offline_players WHERE uuid = ? LIMIT 1");
+                ps1.setString(1, uuid.toString());
+                ResultSet rs1 = ps1.executeQuery();
+                if (rs1.next()) {
+                    uuidExists = true;
+                }
+
+                // Check If the Player Name already exists
+                boolean nameExists = false;
+                PreparedStatement ps2 = connection.prepareStatement(
+                        "SELECT 1 FROM offline_players WHERE plr_name = ? LIMIT 1");
+                ps2.setString(1, playerName);
+                ResultSet rs2 = ps2.executeQuery();
+                if (rs2.next()) {
+                    nameExists = true;
+                }
+
+                // Delete Row with UUID if uuidExists = true
+                if (uuidExists) {
+                    PreparedStatement ps3 = connection.prepareStatement(
+                            "DELETE FROM offline_players WHERE uuid = ?");
+                    ps3.setString(1, uuid.toString());
+                    ps3.executeUpdate();
+                }
+
+                // Delete Row with Name if nameExists = true
+                if (nameExists) {
+                    PreparedStatement ps4 = connection.prepareStatement(
+                            "DELETE FROM offline_players WHERE plr_name = ?");
+                    ps4.setString(1, playerName);
+                    ps4.executeUpdate();
+                }
+
+                // Insert new UUID and Name
+                PreparedStatement ps5 = connection.prepareStatement(
+                        "REPLACE INTO offline_players(uuid, plr_name) VALUES (?, ?)");
+                ps5.setString(1, uuid.toString());
+                ps5.setString(2, playerName);
+                ps5.executeUpdate();
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-
-            // Check If the Player Name already exists
-            boolean nameExists = false;
-            PreparedStatement ps2 = connection.prepareStatement(
-                "SELECT 1 FROM offline_players WHERE plr_name = ? LIMIT 1");
-            ps2.setString(1, playerName);
-            ResultSet rs2 = ps2.executeQuery();
-            if (rs2.next()) {
-                nameExists = true;
-            }
-
-            // Delete Row with UUID if uuidExists = true
-            if (uuidExists) {
-                PreparedStatement ps3 = connection.prepareStatement(
-                    "DELETE FROM offline_players WHERE uuid = ?");
-                ps3.setString(1, uuid.toString());
-                ps3.executeUpdate();
-            }
-
-            // Delete Row with Name if nameExists = true
-            if (nameExists) {
-                PreparedStatement ps4 = connection.prepareStatement(
-                    "DELETE FROM offline_players WHERE plr_name = ?");
-                ps4.setString(1, playerName);
-                ps4.executeUpdate();
-            }
-
-
-            // Insert new UUID and Name
-            PreparedStatement ps5 = connection.prepareStatement(
-                    "REPLACE INTO offline_players(uuid, plr_name) VALUES (?, ?)");
-            ps5.setString(1, uuid.toString());
-            ps5.setString(2, playerName);
-            ps5.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        });
     }
 
     public List<String> getOfflinePlayerNameList() {
@@ -742,17 +846,37 @@ public class GraveManager {
         return null;
     }
 
-    public String getOfflinePlayerName(UUID uuid) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM offline_players WHERE uuid = ?")) {
-            ps.setString(1, uuid.toString());
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return rs.getString("plr_name");
+    public CompletableFuture<UUID> getOfflinePlayerUUIDAsync(String playerName) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM offline_players WHERE plr_name = ?")) {
+                ps.setString(1, playerName);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    String uuid = rs.getString("uuid");
+                    if (uuid != null) {
+                        return UUID.fromString(uuid);
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
+            return null;
+        });
+    }
+
+    public CompletableFuture<String> getOfflinePlayerName(UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM offline_players WHERE uuid = ?")) {
+                ps.setString(1, uuid.toString());
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    return rs.getString("plr_name");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            return null;
+        });
     }
 
     public void deleteVanishingItems() {

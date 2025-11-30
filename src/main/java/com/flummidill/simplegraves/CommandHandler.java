@@ -1,7 +1,6 @@
 package com.flummidill.simplegraves;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import java.util.*;
@@ -81,44 +80,47 @@ public class CommandHandler implements CommandExecutor {
             return true;
         }
 
-        if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
-            player.sendMessage("§cYou don't have a Grave with Number #" + graveNumber);
-            return true;
-        }
+        manager.graveExistsUUID(targetUUID, graveNumber).thenAccept(exists -> {
+            if (!exists) {
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        player.sendMessage("§cYou don't have a Grave with Number #" + graveNumber)
+                );
+                return;
+            }
 
-        Location graveLocation = manager.getGraveLocation(targetUUID, graveNumber);
+            manager.getGraveLocation(targetUUID, graveNumber).thenAccept(location -> {
+                if (location == null || location.getWorld() == null) {
+                    Bukkit.getScheduler().runTask(plugin, () ->
+                            player.sendMessage("§cFailed to retrieve the Grave Location")
+                    );
+                    return;
+                }
 
-        if (graveLocation == null || graveLocation.getWorld() == null) {
-            player.sendMessage("§cFailed to retrieve the Grave Location");
-            return true;
-        }
+                String worldName;
+                switch (location.getWorld().getName()) {
+                    case "world" -> worldName = "The Overworld";
+                    case "world_nether" -> worldName = "The Nether";
+                    case "world_the_end" -> worldName = "The End";
+                    default -> worldName = location.getWorld().getName();
+                }
 
-        String worldName = "The Overworld";
-
-        switch (graveLocation.getWorld().getName()) {
-            case "world":
-                worldName = "The Overworld";
-                break;
-            case "world_nether":
-                worldName = "The Nether";
-                break;
-            case "world_the_end":
-                worldName = "The End";
-        }
-
-        player.sendMessage("§aGrave #" + graveNumber + " is Located at:" +
-                "\n§9World: §c" + worldName +
-                "\n§9X: §c" + Math.floor(graveLocation.getX()) +
-                "\n§9Y: §c" + Math.floor(graveLocation.getY()) +
-                "\n§9Z: §c" + Math.floor(graveLocation.getZ()));
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        player.sendMessage("§aGrave #" + graveNumber + " is Located at:" +
+                                "\n§9World: §c" + worldName +
+                                "\n§9X: §c" + Math.floor(location.getX()) +
+                                "\n§9Y: §c" + Math.floor(location.getY()) +
+                                "\n§9Z: §c" + Math.floor(location.getZ()))
+                );
+            });
+        });
 
         return true;
     }
 
     private boolean handleGraveAdmin(Player sender, String[] args) {
         String action = args[0].toLowerCase();
-        String targetName = args[1];
-        String numberStr = "-1";
+        String targetNameArg = args[1];
+        String numberStr = (args.length >= 3) ? args[2] : "-1";
 
         switch (action) {
             case "go":
@@ -127,177 +129,268 @@ public class CommandHandler implements CommandExecutor {
                     return true;
                 }
                 break;
-
             case "list":
                 if (!sender.hasPermission("simplegraves.graveadmin.list")) {
                     sender.sendMessage("§cYou don’t have permission to use this command.");
                     return true;
                 }
                 break;
-
             case "info":
                 if (!sender.hasPermission("simplegraves.graveadmin.info")) {
                     sender.sendMessage("§cYou don’t have permission to use this command.");
                     return true;
                 }
                 break;
-
             case "remove":
                 if (!sender.hasPermission("simplegraves.graveadmin.remove")) {
                     sender.sendMessage("§cYou don’t have permission to use this command.");
                     return true;
                 }
                 break;
-
             default:
                 sender.sendMessage("Usage: /graveadmin <go|list|info|remove> [<player>] [<number>]");
                 return true;
         }
 
-        UUID targetUUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
-        if (targetName.equals("*")) {
+        final String targetNameFinal = targetNameArg;
+        final String numberStrFinal = numberStr;
+
+        if (targetNameFinal.equals("*")) {
             if (!action.equals("remove")) {
                 sender.sendMessage("§cYou can only use Player * with the remove Command.");
                 return true;
             }
-        } else {
-            Player target = Bukkit.getPlayerExact(targetName);
-            if (target != null) {
-                targetUUID = target.getUniqueId();
-            } else if (manager.getOfflinePlayerUUID(targetName) != null) {
-                targetUUID = manager.getOfflinePlayerUUID(targetName);
+
+            if (numberStrFinal.equals("*")) {
+                manager.removeEveryGrave();
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage("§aRemoved all Graves of all Players."));
             } else {
-                sender.sendMessage("§cPlayer '" + targetName + "' not found.");
-                return true;
-            }
-
-            targetName = manager.getOfflinePlayerName(targetUUID);
-        }
-
-        int graveNumber = -1;
-        if (args.length == 3) {
-            numberStr = args[2];
-
-            if (numberStr.equals("*")) {
-                if (!action.equals("remove")) {
-                    sender.sendMessage("§cYou can only use Number * with the remove Command.");
+                int graveNumber;
+                try {
+                    graveNumber = Integer.parseInt(numberStrFinal);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage("§cGrave must be a Number.");
                     return true;
                 }
-            } else {
+                final int finalGraveNumber = graveNumber;
+                manager.removeAllGravesWithNumber(finalGraveNumber);
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage("§aRemoved all Graves with Number #" + finalGraveNumber + "."));
+            }
+            return true;
+        }
+
+        Player onlineTarget = Bukkit.getPlayerExact(targetNameFinal);
+        if (onlineTarget != null) {
+            final UUID targetUUID = onlineTarget.getUniqueId();
+
+            int graveNumber = -1;
+            if (!numberStrFinal.equals("-1") && !numberStrFinal.equals("*")) {
                 try {
-                    graveNumber = Integer.parseInt(numberStr);
+                    graveNumber = Integer.parseInt(numberStrFinal);
                 } catch (NumberFormatException e) {
                     sender.sendMessage("§cGrave must be a Number.");
                     return true;
                 }
             }
-        }
+            final int finalGraveNumber = graveNumber;
 
-        if (args.length == 2 && !action.equals("list")) {
-            sender.sendMessage("§cPlease specify a Grave Number.");
-            return true;
-        }
-
-        if (graveNumber == -1 && !(action.equals("remove") || action.equals("list"))) {
-            sender.sendMessage("§cYou can only use Number * with the remove Command.");
-            return true;
-        }
-
-        switch (action) {
-            case "go":
-                if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
-                    sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber);
-                    return true;
-                }
-                Location tpLoc = manager.getGraveLocation(targetUUID, graveNumber);
-                if (tpLoc != null) {
-                    sender.teleport(tpLoc);
-                    sender.sendMessage("§aTeleported to " + targetName + "'s Grave #" + graveNumber);
-                    return true;
-                } else {
-                    sender.sendMessage("§cFailed to retrieve Grave Location.");
-                    return true;
-                }
-
-            case "list":
-                List<String> graveList = manager.getGraveNumberList(targetUUID);
-                if (graveList.isEmpty()) {
-                    sender.sendMessage("§c" + manager.getOfflinePlayerName(targetUUID) + " currently has no Graves.");
-                } else {
-                    sender.sendMessage("§a" + targetName + "'s Grave List:");
-                    for (String graveNum : graveList) {
-                        sender.sendMessage("§c#" + graveNum);
-                    }
-                }
-                return true;
-
-            case "info":
-                if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
-                    sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber + ".");
-                    return true;
-                }
-
-                Location graveLocation = manager.getGraveLocation(targetUUID, graveNumber);
-
-                if (graveLocation == null || graveLocation.getWorld() == null) {
-                    sender.sendMessage("§cFailed to retrieve the grave location or world.");
-                    return true;
-                }
-
-                String worldName = "The Overworld";
-
-                switch (graveLocation.getWorld().getName()) {
-                    case "world":
-                        worldName = "The Overworld";
-                        break;
-                    case "world_nether":
-                        worldName = "The Nether";
-                        break;
-                    case "world_the_end":
-                        worldName = "The End";
-                }
-
-                sender.sendMessage("§a" + targetName + "'s Grave #" + graveNumber + " is Located at:" +
-                        "\n§9World: §c" + worldName +
-                        "\n§9X: §c" + Math.floor(graveLocation.getX()) +
-                        "\n§9Y: §c" + Math.floor(graveLocation.getY()) +
-                        "\n§9Z: §c" + Math.floor(graveLocation.getZ()));
-
-
-                return true;
-
-            case "remove":
-                if (targetName.equals("*")) {
-                    if (numberStr.equals("*")) {
-                        manager.removeEveryGrave();
-                        sender.sendMessage("§aRemoved all Graves of all Players.");
+            switch (action) {
+                case "go":
+                    manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
+                        if (!exists) {
+                            Bukkit.getScheduler().runTask(plugin, () ->
+                                    sender.sendMessage("§c" + targetNameFinal + " doesn't have a Grave with Number #" + finalGraveNumber));
+                            return;
+                        }
+                        manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
+                            if (location != null) {
+                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                    sender.teleport(location);
+                                    sender.sendMessage("§aTeleported to " + targetNameFinal + "'s Grave #" + finalGraveNumber);
+                                });
+                            } else {
+                                Bukkit.getScheduler().runTask(plugin, () ->
+                                        sender.sendMessage("§cFailed to retrieve Grave Location."));
+                            }
+                        });
+                    });
+                    break;
+                case "list":
+                    manager.getGraveNumberListAsync(targetUUID).thenAccept(graveList -> {
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            if (graveList.isEmpty()) {
+                                sender.sendMessage("§c" + targetNameFinal + " currently has no Graves.");
+                            } else {
+                                sender.sendMessage("§a" + targetNameFinal + "'s Grave List:");
+                                for (String graveNum : graveList) {
+                                    sender.sendMessage("§c#" + graveNum);
+                                }
+                            }
+                        });
+                    });
+                    break;
+                case "info":
+                    manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
+                        if (!exists) {
+                            Bukkit.getScheduler().runTask(plugin, () ->
+                                    sender.sendMessage("§c" + targetNameFinal + " doesn't have a Grave with Number #" + finalGraveNumber));
+                            return;
+                        }
+                        manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
+                            if (location == null || location.getWorld() == null) {
+                                Bukkit.getScheduler().runTask(plugin, () ->
+                                        sender.sendMessage("§cFailed to retrieve the grave location or world."));
+                                return;
+                            }
+                            String worldName;
+                            switch (location.getWorld().getName()) {
+                                case "world" -> worldName = "The Overworld";
+                                case "world_nether" -> worldName = "The Nether";
+                                case "world_the_end" -> worldName = "The End";
+                                default -> worldName = location.getWorld().getName();
+                            }
+                            Bukkit.getScheduler().runTask(plugin, () ->
+                                    sender.sendMessage("§a" + targetNameFinal + "'s Grave #" + finalGraveNumber + " is Located at:" +
+                                            "\n§9World: §c" + worldName +
+                                            "\n§9X: §c" + Math.floor(location.getX()) +
+                                            "\n§9Y: §c" + Math.floor(location.getY()) +
+                                            "\n§9Z: §c" + Math.floor(location.getZ())));
+                        });
+                    });
+                    break;
+                case "remove":
+                    if (numberStrFinal.equals("*")) {
+                        manager.removeAllGraves(targetUUID);
+                        Bukkit.getScheduler().runTask(plugin, () ->
+                                sender.sendMessage("§aRemoved all Graves of " + targetNameFinal + "."));
                     } else {
-                        manager.removeAllGravesWithNumber(graveNumber);
-                        sender.sendMessage("§aRemoved all Graves with Number #" + graveNumber + ".");
+                        manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
+                            if (!exists) {
+                                Bukkit.getScheduler().runTask(plugin, () ->
+                                        sender.sendMessage("§c" + targetNameFinal + " doesn't have a Grave with Number #" + finalGraveNumber));
+                                return;
+                            }
+                            manager.removeGrave(targetUUID, finalGraveNumber, false);
+                            Bukkit.getScheduler().runTask(plugin, () ->
+                                    sender.sendMessage("§aRemoved " + targetNameFinal + "'s Grave #" + finalGraveNumber));
+                        });
                     }
                     break;
-                }
-
-                if (numberStr.equals("*")) {
-                    manager.removeAllGraves(targetUUID);
-                    sender.sendMessage("§aRemoved all Graves of " + targetName + ".");
-                    break;
-                }
-
-                if (!manager.graveExistsUUID(targetUUID, graveNumber)) {
-                    sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + graveNumber);
-
-                    return true;
-                }
-                manager.removeGrave(targetUUID, graveNumber);
-                sender.sendMessage("§aRemoved " + targetName + "'s Grave #" + graveNumber);
-                return true;
-
-            default:
-                sender.sendMessage("Usage: /graveadmin <go|list|info|remove> [<player>] [<number>]");
-
-                return true;
+            }
+            return true;
         }
+
+        // Offline Target handling
+        manager.getOfflinePlayerUUIDAsync(targetNameFinal).thenAccept(uuid -> {
+            manager.getOfflinePlayerName(uuid).thenAccept(name -> {
+                if (uuid == null) {
+                    Bukkit.getScheduler().runTask(plugin, () ->
+                            sender.sendMessage("§cPlayer '" + targetNameFinal + "' not found."));
+                    return;
+                }
+                final UUID targetUUID = uuid;
+                final String targetName = name;
+
+                int graveNumber = -1;
+                if (!numberStrFinal.equals("-1") && !numberStrFinal.equals("*")) {
+                    try {
+                        graveNumber = Integer.parseInt(numberStrFinal);
+                    } catch (NumberFormatException e) {
+                        Bukkit.getScheduler().runTask(plugin, () ->
+                                sender.sendMessage("§cGrave must be a Number."));
+                        return;
+                    }
+                }
+                final int finalGraveNumber = graveNumber;
+
+                switch (action) {
+                    case "go":
+                        manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
+                            if (!exists) {
+                                Bukkit.getScheduler().runTask(plugin, () ->
+                                        sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + finalGraveNumber));
+                                return;
+                            }
+                            manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
+                                if (location != null) {
+                                    Bukkit.getScheduler().runTask(plugin, () -> {
+                                        sender.teleport(location);
+                                        sender.sendMessage("§aTeleported to " + targetName + "'s Grave #" + finalGraveNumber);
+                                    });
+                                } else {
+                                    Bukkit.getScheduler().runTask(plugin, () ->
+                                            sender.sendMessage("§cFailed to retrieve Grave Location."));
+                                }
+                            });
+                        });
+                        break;
+                    case "list":
+                        manager.getGraveNumberListAsync(targetUUID).thenAccept(graveList -> {
+                            Bukkit.getScheduler().runTask(plugin, () -> {
+                                if (graveList.isEmpty()) {
+                                    sender.sendMessage("§c" + targetName + " currently has no Graves.");
+                                } else {
+                                    sender.sendMessage("§a" + targetName + "'s Grave List:");
+                                    for (String graveNum : graveList) {
+                                        sender.sendMessage("§c#" + graveNum);
+                                    }
+                                }
+                            });
+                        });
+                        break;
+                    case "info":
+                        manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
+                            if (!exists) {
+                                Bukkit.getScheduler().runTask(plugin, () ->
+                                        sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + finalGraveNumber));
+                                return;
+                            }
+                            manager.getGraveLocation(targetUUID, finalGraveNumber).thenAccept(location -> {
+                                if (location == null || location.getWorld() == null) {
+                                    Bukkit.getScheduler().runTask(plugin, () ->
+                                            sender.sendMessage("§cFailed to retrieve the grave location or world."));
+                                    return;
+                                }
+                                String worldName;
+                                switch (location.getWorld().getName()) {
+                                    case "world" -> worldName = "The Overworld";
+                                    case "world_nether" -> worldName = "The Nether";
+                                    case "world_the_end" -> worldName = "The End";
+                                    default -> worldName = location.getWorld().getName();
+                                }
+                                Bukkit.getScheduler().runTask(plugin, () ->
+                                        sender.sendMessage("§a" + targetName + "'s Grave #" + finalGraveNumber + " is Located at:" +
+                                                "\n§9World: §c" + worldName +
+                                                "\n§9X: §c" + Math.floor(location.getX()) +
+                                                "\n§9Y: §c" + Math.floor(location.getY()) +
+                                                "\n§9Z: §c" + Math.floor(location.getZ())));
+                            });
+                        });
+                        break;
+                    case "remove":
+                        if (numberStrFinal.equals("*")) {
+                            manager.removeAllGraves(targetUUID);
+                            Bukkit.getScheduler().runTask(plugin, () ->
+                                    sender.sendMessage("§aRemoved all Graves of " + targetName + "."));
+                        } else {
+                            manager.graveExistsUUID(targetUUID, finalGraveNumber).thenAccept(exists -> {
+                                if (!exists) {
+                                    Bukkit.getScheduler().runTask(plugin, () ->
+                                            sender.sendMessage("§c" + targetName + " doesn't have a Grave with Number #" + finalGraveNumber));
+                                    return;
+                                }
+                                manager.removeGrave(targetUUID, finalGraveNumber, false);
+                                Bukkit.getScheduler().runTask(plugin, () ->
+                                        sender.sendMessage("§aRemoved " + targetName + "'s Grave #" + finalGraveNumber));
+                            });
+                        }
+                        break;
+                }
+            });
+        });
+
         return true;
     }
 }

@@ -3,7 +3,7 @@
 #         By Flummidill         #
 # # # # # # # # # # # # # # # # #
 
-# Allows breaking other Player's Graves (Default: true)
+# Allow breaking other Player's Graves (Default: true)
 # Must be true or false
 grave-stealing: true
 
@@ -14,6 +14,11 @@ max-stored-xp: 25
 # Remove Items with Curse of Vanishing on Death (Default: false)
 # Must be true or false
 delete-vanishing-items: false
+
+# Protect Player Heads that aren't a Grave from being destroyed by Water (Default: true)
+# Recommended to enable this for BIG Performance Improvements
+# Must be true or false
+non-grave-player-head-water-protection: true
 
 # The Config Version
 # Do not change this Value

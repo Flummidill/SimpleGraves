@@ -14,6 +14,8 @@ public class GraveProtector implements Listener {
     private final SimpleGraves plugin;
     private final GraveManager manager;
 
+    private boolean nonGravePlayerHeadWaterProtection = true;
+
 
     public GraveProtector(SimpleGraves plugin, GraveManager manager) {
         this.plugin = plugin;
@@ -35,7 +37,9 @@ public class GraveProtector implements Listener {
     public void onBlockFromTo(BlockFromToEvent event) {
         Block block = event.getToBlock();
 
-        if (isGraveBlock(block)) {
+        if (nonGravePlayerHeadWaterProtection && block.getType() == Material.PLAYER_HEAD) {
+            event.setCancelled(true);
+        } else if (isGraveBlock(block)) {
             event.setCancelled(true);
         }
     }
@@ -82,5 +86,10 @@ public class GraveProtector implements Listener {
         }
 
         return false;
+    }
+
+
+    public void disableNonGravePlayerHeadWaterProtection() {
+        this.nonGravePlayerHeadWaterProtection = false;
     }
 }

@@ -1,7 +1,9 @@
 package com.flummidill.simplegraves;
 
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.IOException;
@@ -16,6 +18,7 @@ import java.io.StringWriter;
 public class SimpleGraves extends JavaPlugin {
 
     private GraveManager manager;
+    private DatabaseWorker dbWorker;
     private PlayerJoinListener playerJoinListener;
     private PlayerDeathListener playerDeathListener;
     private BlockBreakListener blockBreakListener;
@@ -26,9 +29,13 @@ public class SimpleGraves extends JavaPlugin {
     public void onEnable() {
         getLogger().info("~ Created by Flummidill ~");
 
+        // Initialize Database-Worker
+        getLogger().info("Initializing Database-Worker...");
+        dbWorker = new DatabaseWorker();
+
         // Initialize Grave-Manager
         getLogger().info("Initializing Grave-Manager...");
-        manager = new GraveManager(this);
+        manager = new GraveManager(this, dbWorker);
 
         // Initialize Event Listeners
         getLogger().info("Initializing Event Listeners...");
@@ -45,6 +52,15 @@ public class SimpleGraves extends JavaPlugin {
         // Check for Updates
         getLogger().info("Checking for Updates...");
         checkForUpdates();
+
+        // Enable Keep-Inventory on Server Load
+        BukkitRunnable onLoad = new BukkitRunnable() {
+            @Override
+            public void run() {
+                executeConsoleCommand("gamerule keepInventory true");
+            }
+        };
+        onLoad.runTaskLater(this, 1L);
     }
 
 
@@ -63,6 +79,7 @@ public class SimpleGraves extends JavaPlugin {
         boolean graveStealing = getConfig().getBoolean("grave-stealing", true);
         int maxStoredXP = getConfig().getInt("max-stored-xp", 25);
         boolean deleteVanishingItems = getConfig().getBoolean("delete-vanishing-items", false);
+        boolean nonGravePlayerHeadWaterProtection = getConfig().getBoolean("non-grave-player-head-water-protection", true);
 
         String configVersion = getConfig().getString("config-version", "1.0.0");
         String currentVersion = getDescription().getVersion();
@@ -87,6 +104,11 @@ public class SimpleGraves extends JavaPlugin {
             manager.deleteVanishingItems();
         }
         config.set("delete-vanishing-items", deleteVanishingItems);
+
+        if (nonGravePlayerHeadWaterProtection == false) {
+            graveProtector.disableNonGravePlayerHeadWaterProtection();
+        }
+        config.set("non-grave-player-head-water-protection", nonGravePlayerHeadWaterProtection);
 
         if ("1.0.0".equals(configVersion) || isNewerVersion(configVersion, "1.0.0")) {
             if (isOlderVersion(configVersion, currentVersion)) {
@@ -196,6 +218,15 @@ public class SimpleGraves extends JavaPlugin {
         }
 
         return false;
+    }
+
+
+    // ------------------------------------------------------------ \\
+
+
+    @Override
+    public void onDisable() {
+        dbWorker.shutdown();
     }
 
 

@@ -49,4 +49,5 @@ simplegraves.admin (Default: false) - Allow use of Admin Commands
 grave-stealing - Allows breaking other Player's Graves
 max-stored-xp - Maximum Amount of XP-Levels that will be stord in Graves
 delete-vanishing-items - Deletes Items with Curse of Vanishing
+non-grave-player-head-water-protection - Protect Player Heads that aren't a Grave from being destroyed by Water (BIG Performance Improvement if Enabled)
 ```
